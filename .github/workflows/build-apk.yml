@@ -17,8 +17,8 @@ jobs:
       - name: 配置 Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'                  # 缓存 npm 依赖，省下次次重新下
+          node-version: '22'              # Node 22（Node 20 已弃用）
+          cache: 'npm'                  # 缓存 npm 依赖（需 package-lock.json）
 
       - name: 配置 JDK 17（Android Gradle 需要）
         uses: actions/setup-java@v4
