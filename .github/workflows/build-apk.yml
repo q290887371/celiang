@@ -26,13 +26,24 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 准备 Android SDK 环境（用 ubuntu-latest 预装 SDK）
+      - name: 安装 Android 命令行工具（动态取最新版；ubuntu-latest 不预装 SDK）
         run: |
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          if [ -z "$ANDROID_HOME" ] || [ ! -d "$ANDROID_HOME" ]; then
-            echo "::error::未检测到预装 Android SDK（ANDROID_HOME=$ANDROID_HOME）"
+          export ANDROID_HOME=$RUNNER_TEMP/android-sdk
+          mkdir -p $ANDROID_HOME/cmdline-tools
+          cd $ANDROID_HOME/cmdline-tools
+          XML_URL='https://dl.google.com/android/repository/repository2-3.xml'
+          # 动态解析 cmdline-tools-linux 最新下载地址，避免硬编码版本号 404
+          TOOLS_ZIP=$(curl -fsSL "$XML_URL" | grep -oP '<url>\Kcommandlinetools-linux-[0-9]+(?:_latest)?\.zip' | head -1) || true
+          if [ -z "$TOOLS_ZIP" ]; then
+            echo "::error::无法从 $XML_URL 解析 cmdline-tools 下载地址"
             exit 1
           fi
+          echo "下载 $TOOLS_ZIP ..."
+          if ! curl -fsSL -o tools.zip "https://dl.google.com/android/repository/$TOOLS_ZIP"; then
+            echo "::error::下载 $TOOLS_ZIP 失败"
+            exit 1
+          fi
+          unzip -q tools.zip && mv cmdline-tools latest && rm tools.zip
           echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
           echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
           echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
