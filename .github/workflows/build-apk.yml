@@ -79,7 +79,13 @@ jobs:
         run: npx cap sync android
 
       - name: 编译 Debug APK
-        run: cd android && chmod +x gradlew && ./gradlew assembleDebug --no-daemon --stacktrace
+        run: |
+          cd android
+          # Capacitor 模板不生成 local.properties，AGP 8.x 在 CI 容器里有时找不到 SDK，
+          # 显式写入 sdk.dir（ANDROID_HOME 由 step 5/6 导出过、这里直接读）
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: 上传 APK 作为构建产物
         uses: actions/upload-artifact@v4
