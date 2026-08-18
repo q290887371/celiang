@@ -1,0 +1,8 @@
+{
+  "appId": "com.long.roadsurvey",
+  "appName": "路面测量工作台",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "路面测量工作台",
+  "short_name": "路面测量",
+  "description": "公路沥青混凝土路面测量 · 横断面高程与铺筑偏差计算，支持换水准点分段保存、SQLite 本地数据库",
+  "lang": "zh-CN",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f1419",
+  "theme_color": "#0f1419",
+  "icons": [
+    {
+      "src": "assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

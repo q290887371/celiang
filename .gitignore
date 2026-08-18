@@ -1,0 +1,13 @@
+# 依赖与生成物
+node_modules/
+www/
+android/
+ios/
+
+# 数据库（运行时生成，按需导出备份，勿提交）
+*.db
+survey*.db
+
+# 系统
+.DS_Store
+Thumbs.db

@@ -1,0 +1,18 @@
+{
+  "name": "road-survey-workbench",
+  "version": "1.0.0",
+  "description": "公路沥青混凝土路面测量工作台 · 移动端 App（PWA / Capacitor）",
+  "private": true,
+  "scripts": {
+    "build:www": "node scripts/copy-www.js",
+    "dev": "node scripts/serve.js",
+    "sync": "npm run build:www && cap sync",
+    "add:android": "npm run build:www && cap add android",
+    "open:android": "cap open android"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^5.7.0",
+    "@capacitor/cli": "^5.7.0",
+    "@capacitor/core": "^5.7.0"
+  }
+}

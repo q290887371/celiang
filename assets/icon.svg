@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="96" fill="#0f1419"/>
+  <rect x="64" y="232" width="384" height="120" rx="16" fill="#232b36" stroke="#4a90d9" stroke-width="8"/>
+  <line x1="96" y1="292" x2="416" y2="292" stroke="#4a90d9" stroke-width="6" stroke-dasharray="22 20"/>
+  <circle cx="150" cy="200" r="26" fill="#2ecc71"/>
+  <circle cx="362" cy="200" r="26" fill="#f0a020"/>
+  <path d="M150 226 L150 292 M362 226 L362 292" stroke="#6b7886" stroke-width="5"/>
+  <text x="256" y="400" font-family="-apple-system,Segoe UI,sans-serif" font-size="60" font-weight="700" fill="#e6edf3" text-anchor="middle">测</text>
+</svg>

@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1419">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>路面测量工作台</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+  <link rel="apple-touch-icon" href="assets/icon.svg">
+  <link rel="stylesheet" href="styles.css">
+  <script src="lib/sql-wasm.js"></script>
+</head>
+<body>
+
+  <!-- 启动遮罩 -->
+  <div id="boot">
+    <div class="spin"></div>
+    <div>正在初始化数据库…</div>
+  </div>
+
+  <!-- 顶部应用栏 -->
+  <header class="app-bar">
+    <div class="title">路面测量工作台</div>
+    <div class="actions">
+      <button class="btn btn-sm" onclick="exportDB()">导出数据库</button>
+      <button class="btn btn-sm" onclick="document.getElementById('importFile').click()">导入</button>
+      <input type="file" id="importFile" accept=".db,.sqlite" style="display:none" onchange="importDB(this)">
+    </div>
+  </header>
+
+  <!-- 内容区 -->
+  <main class="content">
+
+    <!-- Tab 1: 项目设置 -->
+    <section class="tab-panel active" id="tab-project">
+      <div class="card">
+        <div class="card-title">工程信息</div>
+        <div class="form-row">
+          <label>工程名称</label>
+          <div class="field"><input id="projectName" onchange="state.project.name=this.value;saveAll()"></div>
+        </div>
+        <div class="form-row">
+          <label>虚铺厚度(m)</label>
+          <div class="field"><input id="looseThickness" type="number" step="0.01" onchange="onProjectChange()"></div>
+        </div>
+        <div class="form-row">
+          <label>横坡度</label>
+          <div class="field field-inline">
+            <input id="crossSlope" type="number" step="0.001" onchange="onProjectChange()"><span class="unit">如0.02</span>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>结构层总厚(m)</label>
+          <div class="field"><input id="layerTotal" type="number" step="0.01" onchange="onProjectChange()"></div>
+        </div>
+        <div class="form-row">
+          <label>偏距1/2/3(m)</label>
+          <div class="field field-inline">
+            <input id="off1" type="number" step="1" onchange="onProjectChange()">
+            <input id="off2" type="number" step="1" onchange="onProjectChange()">
+            <input id="off3" type="number" step="1" onchange="onProjectChange()">
+          </div>
+        </div>
+        <div class="form-row">
+          <label>容许偏差(mm)</label>
+          <div class="field"><input id="tolerance" type="number" step="1" onchange="onProjectChange()"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">路面结构层</div>
+        <div id="layerList"></div>
+        <div class="btn-row">
+          <button class="btn btn-sm" onclick="addLayer()">+ 添加结构层</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">水准点</div>
+        <div id="benchmarkList"></div>
+        <div class="btn-row">
+          <button class="btn btn-sm" onclick="addBenchmark()">+ 添加水准点</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">设计标高控制点</div>
+        <div class="section-label">桩号格式 K0+600（加号分隔）</div>
+        <div id="controlList"></div>
+        <div class="btn-row">
+          <button class="btn btn-sm" onclick="addControlPoint()">+ 添加控制点</button>
+          <button class="btn btn-sm" onclick="generateStations()">生成桩号序列</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 2: 原始数据 -->
+    <section class="tab-panel" id="tab-origdata">
+      <div class="card">
+        <div class="card-title">
+          <span>原始数据录入</span>
+        </div>
+        <div class="section-label">每桩号 5 点读数：南 / 南腰 / 中 / 北腰 / 北（单位 m）</div>
+        <div class="table-wrapper">
+          <table class="data-table" id="origdataTable">
+            <thead>
+              <tr>
+                <th>桩号</th><th>南</th><th>南腰</th><th>中</th><th>北腰</th><th>北</th><th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="origdataBody"></tbody>
+          </table>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-sm btn-primary" onclick="addMeasureRow()">+ 添加测量行</button>
+          <button class="btn btn-sm" onclick="addMeasureRow(true)">+ 控制点行</button>
+          <button class="btn btn-sm btn-danger" id="delAllBtn" onclick="deleteAllMeasures(this)">全部删除</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 3: 测量录入 -->
+    <section class="tab-panel" id="tab-measure">
+      <div class="card">
+        <div class="card-title">水准点设置</div>
+        <div class="setup-grid">
+          <div class="field">
+            <label class="section-label">水准点</label>
+            <select id="bmSelect" onchange="onBenchmarkSelect()"></select>
+          </div>
+          <div class="field">
+            <label class="section-label">后视读数(m)</label>
+            <input id="backsight" type="number" step="0.001" onchange="updateLineOfSight()">
+          </div>
+        </div>
+        <div class="los-box">
+          <div class="section-label">视线高 (m)</div>
+          <div class="v" id="losValue">—</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>测量录入 (m)</span>
+        </div>
+        <div class="col-toggles">
+          <span class="toggle-label">显示列：</span>
+          <label class="chk-inline"><input type="checkbox" checked onchange="toggleMeasureCol('elev', this.checked)"> 测量高程</label>
+          <label class="chk-inline"><input type="checkbox" checked onchange="toggleMeasureCol('diff', this.checked)"> 测量差值</label>
+        </div>
+        <div class="section-label">填桩号自动匹配设计标高；测量高程=视线高−原始数据；测量差值=视线高−目标高程−原始数据</div>
+        <div class="table-wrapper">
+          <table class="data-table" id="measureTable">
+            <thead id="measureHead"></thead>
+            <tbody id="measureBody"></tbody>
+          </table>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-sm btn-success" onclick="saveMeasureSession()">💾 保存测量模块</button>
+        </div>
+        <div class="section-label" style="margin-top:8px">保存后自动清空本页，便于换水准点继续测量下一段。</div>
+      </div>
+    </section>
+
+    <!-- Tab 4: 计算结果 -->
+    <section class="tab-panel" id="tab-result">
+      <div class="card">
+        <div class="card-title">
+          <span>测量模块汇总</span>
+          <button class="btn btn-sm" onclick="exportSessionsCSV()">导出CSV</button>
+        </div>
+        <div class="col-toggles">
+          <span class="toggle-label">可选展示列：</span>
+          <label class="chk-inline"><input type="checkbox" checked onchange="toggleSessionCol('elev', this.checked)"> 测量高程</label>
+          <label class="chk-inline"><input type="checkbox" checked onchange="toggleSessionCol('diff', this.checked)"> 测量差值</label>
+          <label class="chk-inline"><input type="checkbox" checked onchange="toggleSessionCol('orig', this.checked)"> 原始数据</label>
+        </div>
+        <div class="stats-grid" id="resultStats"></div>
+      </div>
+      <div id="sessionModules"></div>
+    </section>
+
+  </main>
+
+  <!-- 底部导航 -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" data-tab="project" onclick="switchTab('project')">
+      <span class="ico">⚙️</span><span>项目设置</span>
+    </button>
+    <button class="nav-item" data-tab="origdata" onclick="switchTab('origdata')">
+      <span class="ico">📝</span><span>原始数据</span>
+    </button>
+    <button class="nav-item" data-tab="measure" onclick="switchTab('measure')">
+      <span class="ico">📐</span><span>测量录入</span>
+    </button>
+    <button class="nav-item" data-tab="result" onclick="switchTab('result')">
+      <span class="ico">📊</span><span>计算结果</span>
+    </button>
+  </nav>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
