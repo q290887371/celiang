@@ -297,6 +297,39 @@ function deleteControlPoint(i) {
   state.project.controlPoints.splice(i, 1);
   renderControlList(); saveAll(); renderMeasures();
 }
+
+// 批量粘贴导入控制点：每行「桩号 设计标高」（空格/Tab 分隔），支持大小写与 k1+5 简写
+function importControlPoints() {
+  const ta = document.getElementById('cpImport');
+  const replace = document.getElementById('cpReplace') && document.getElementById('cpReplace').checked;
+  const lines = (ta.value || '').split(/\r?\n/);
+  const parsed = [];
+  const skipped = [];
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) continue;
+    const tk = line.split(/\s+/);
+    const st = tk[0];
+    const ev = tk.length > 1 ? tk[tk.length - 1] : null; // 取末段，防尾随空格
+    const m = parseStation(st);
+    const e = parseFloat(ev);
+    if (isNaN(m) || isNaN(e)) { skipped.push(line); continue; }
+    parsed.push({ station: formatStation(m), elevation: e });
+  }
+  if (!parsed.length) { toast('未解析到有效控制点，请检查格式'); return; }
+  let merged = replace ? parsed : state.project.controlPoints.concat(parsed);
+  // 按桩号去重（保留先出现者）
+  const seen = new Set();
+  merged = merged.filter(c => {
+    const k = parseStation(c.station);
+    if (seen.has(k)) return false;
+    seen.add(k); return true;
+  });
+  state.project.controlPoints = merged;
+  renderControlList(); saveAll(); renderMeasures();
+  if (skipped.length) toast(`已导入 ${parsed.length} 个，跳过 ${skipped.length} 行无效数据`);
+  else toast(`已导入 ${parsed.length} 个控制点`);
+}
 function generateStations() {
   const cps = state.project.controlPoints
     .map(c => parseStation(c.station)).filter(m => !isNaN(m)).sort((a, b) => a - b);

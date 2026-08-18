@@ -95,6 +95,16 @@
           <button class="btn btn-sm" onclick="generateStations()">生成桩号序列</button>
         </div>
       </div>
+
+      <div class="card">
+        <div class="card-title">批量导入控制点</div>
+        <div class="section-label">每行一个：桩号（空格或 Tab）设计标高。支持 K0+587 / k1+79 / k0+600 等大小写与简写格式，可一次性粘贴上百行。</div>
+        <textarea id="cpImport" class="cp-import" rows="6" placeholder="K0+587&#9;9.283&#10;k0+600&#9;9.326&#10;k1+79&#9;9.570"></textarea>
+        <div class="btn-row">
+          <label class="chk-inline"><input type="checkbox" id="cpReplace" checked> 清空现有后导入</label>
+          <button class="btn btn-sm btn-primary" onclick="importControlPoints()">导入</button>
+        </div>
+      </div>
     </section>
 
     <!-- Tab 2: 原始数据 -->
