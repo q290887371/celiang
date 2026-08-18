@@ -28,6 +28,12 @@ jobs:
 
       - name: 安装 Android 命令行工具（动态取最新版；ubuntu-latest 不预装 SDK）
         run: |
+          # 确保 curl / unzip 可用（GitHub ubuntu runner 镜像可能精简掉基础工具，导致上一版 127）
+          if ! command -v curl >/dev/null 2>&1 || ! command -v unzip >/dev/null 2>&1; then
+            echo "检测到 curl/unzip 缺失，通过 apt-get 安装..."
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq curl unzip
+          fi
           export ANDROID_HOME=$RUNNER_TEMP/android-sdk
           mkdir -p $ANDROID_HOME/cmdline-tools
           cd $ANDROID_HOME/cmdline-tools
