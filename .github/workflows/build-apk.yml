@@ -5,7 +5,7 @@ name: Build Android APK
 on:
   push:
     branches: [main, master]
-  workflow_dispatch:   # 允许在 Actions 页面手动点“Run workflow”触发
+  workflow_dispatch:   # 允许在 Actions 页面手动点"Run workflow"触发
 
 jobs:
   build:
@@ -18,6 +18,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'                  # 缓存 npm 依赖，省下次次重新下
 
       - name: 配置 JDK 17（Android Gradle 需要）
         uses: actions/setup-java@v4
@@ -25,14 +26,19 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 安装 Android SDK 并自动接受许可协议
+      - name: 安装 Android SDK（同时自动接受许可证）
         uses: android-actions/setup-android@v3
+        with:
+          packages: |
+            platform-tools
+            platforms;android-34
+            build-tools;34.0.0
 
-      - name: 安装 Android 编译平台与构建工具
-        run: sdkmanager "platforms;android-34" "build-tools;34.0.0"
+      - name: 防御性：再接受一次所有许可证
+        run: yes | sdkmanager --licenses || true
 
-      - name: 安装 npm 依赖（含 @capacitor/android）
-        run: npm install
+      - name: 安装 npm 依赖（含 @capacitor/android、cli）
+        run: npm ci 2>/dev/null || npm install
 
       - name: 构建 www/ 静态资源
         run: npm run build:www
@@ -44,7 +50,7 @@ jobs:
         run: npx cap sync android
 
       - name: 编译 Debug APK
-        run: cd android && chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+        run: cd android && chmod +x gradlew && ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: 上传 APK 作为构建产物
         uses: actions/upload-artifact@v4
