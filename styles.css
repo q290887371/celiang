@@ -141,6 +141,28 @@ button { cursor: pointer; border: none; border-radius: 9px; padding: 11px 14px; 
   margin: 4px 0 2px;
 }
 
+/* 分项工程下拉框 */
+#subItem {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid var(--border, #2a3340);
+  background: var(--surface-2, #11161d);
+  color: var(--text, #e6edf3);
+  border-radius: 8px;
+  font-size: 15px;
+}
+
+/* 结构层 生效 / 不生效 状态 */
+.layer-item.is-inactive { opacity: .42; }
+.layer-state {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.layer-state.on { background: rgba(46, 160, 67, .18); color: #3fb950; }
+.layer-state.off { background: rgba(248, 81, 73, .16); color: #ff7b72; }
+
 /* ===== 统计卡 ===== */
 .stats-grid { display: flex; gap: 10px; margin-bottom: 12px; }
 .stat-card { flex: 1; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px; text-align: center; }

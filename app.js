@@ -12,10 +12,11 @@ function defaultState() {
     project: {
       name: '兴运道东段沥青混凝土路面测量',
       layers: [
-        { key: 'lime', name: '石灰稳定土底基层', thickness: 0.20 },
+        { key: 'asphalt', name: '沥青混凝土面层', thickness: 0.09 },
         { key: 'grave', name: '级配碎石基层', thickness: 0.18 },
-        { key: 'asphalt', name: '沥青混凝土面层', thickness: 0.09 }
+        { key: 'lime', name: '石灰稳定土底基层', thickness: 0.20 }
       ],
+      subItem: 'asphalt',
       layerTotalThickness: 0.47,
       looseThickness: 0.05,
       crossSlope: 0.02,
@@ -74,11 +75,12 @@ function elevationAtStation(stationM) {
   return NaN;
 }
 
-// 测量目标高程（摊铺前应达到的设计高程）: D - 总厚 + 各层和 + 虚铺 - 偏距×横坡
+// 测量目标高程（摊铺前应达到的设计高程）: D - 总厚 + 各层和(仅生效层) + 虚铺 - 偏距×横坡
 function computeMeasureInputs(designElev) {
   const D = parseFloat(designElev);
   const total = parseFloat(state.project.layerTotalThickness);
-  const sumLayers = state.project.layers.reduce((s, l) => s + (parseFloat(l.thickness) || 0), 0);
+  const act = activeLayerKeys();
+  const sumLayers = state.project.layers.reduce((s, l) => s + (act.has(l.key) ? (parseFloat(l.thickness) || 0) : 0), 0);
   const loose = parseFloat(state.project.looseThickness);
   const cs = parseFloat(state.project.crossSlope);
   const o = state.project.offsets;
@@ -223,6 +225,7 @@ function downloadBlob(blob, name) {
    ============================================================ */
 function bindProjectInputs() {
   document.getElementById('projectName').value = state.project.name || '';
+  populateSubItem();
   document.getElementById('looseThickness').value = state.project.looseThickness;
   document.getElementById('crossSlope').value = state.project.crossSlope;
   document.getElementById('layerTotal').value = state.project.layerTotalThickness;
@@ -244,22 +247,49 @@ function onProjectChange() {
   saveAll(); renderMeasures();
 }
 
+// 分项工程：选到某层时，该层及其以下（朝路床方向，数组靠后）各层生效，其上各层不生效
+function activeLayerKeys() {
+  const cps = state.project.layers || [];
+  let sel = state.project.subItem;
+  if (!sel || !cps.some(l => l.key === sel)) sel = cps.length ? cps[0].key : '';
+  const idx = cps.findIndex(l => l.key === sel);
+  if (idx < 0) return new Set(cps.map(l => l.key));
+  return new Set(cps.filter((l, i) => i >= idx).map(l => l.key)); // 选中层 + 以下
+}
+// 用结构层名称填充分项工程下拉框（顺序与路面结构层卡片一致）
+function populateSubItem() {
+  const sel = document.getElementById('subItem');
+  if (!sel) return;
+  const cps = state.project.layers || [];
+  let cur = state.project.subItem;
+  if (!cur || !cps.some(l => l.key === cur)) cur = cps.length ? cps[0].key : '';
+  state.project.subItem = cur;
+  sel.innerHTML = cps.map(l => `<option value="${l.key}" ${l.key === cur ? 'selected' : ''}>${l.name}</option>`).join('');
+}
+function onSubItemChange() {
+  const sel = document.getElementById('subItem');
+  if (sel) state.project.subItem = sel.value;
+  saveAll(); renderLayerList(); renderMeasures();
+}
+
 function renderLayerList() {
+  const act = activeLayerKeys();
   const box = document.getElementById('layerList');
   box.innerHTML = state.project.layers.map((l, i) => `
-    <div class="layer-item">
-      <input type="text" value="${l.name}" onchange="state.project.layers[${i}].name=this.value;saveAll()">
+    <div class="layer-item ${act.has(l.key) ? 'is-active' : 'is-inactive'}">
+      <input type="text" value="${l.name}" onchange="state.project.layers[${i}].name=this.value;saveAll();populateSubItem();renderLayerList()">
       <input type="number" step="0.01" value="${l.thickness}" onchange="state.project.layers[${i}].thickness=parseFloat(this.value)||0;saveAll();renderMeasures()">
+      <span class="layer-state ${act.has(l.key) ? 'on' : 'off'}">${act.has(l.key) ? '生效' : '不生效'}</span>
       <button class="btn btn-sm btn-danger del" onclick="deleteLayer('${l.key}')">删</button>
     </div>`).join('');
 }
 function addLayer() {
   state.project.layers.push({ key: 'L' + Date.now(), name: '新结构层', thickness: 0.05 });
-  renderLayerList(); saveAll(); renderMeasures();
+  populateSubItem(); renderLayerList(); saveAll(); renderMeasures();
 }
 function deleteLayer(key) {
   state.project.layers = state.project.layers.filter(l => l.key !== key);
-  renderLayerList(); saveAll(); renderMeasures();
+  populateSubItem(); renderLayerList(); saveAll(); renderMeasures();
 }
 
 function renderBenchmarkList() {
