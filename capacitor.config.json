@@ -1,5 +1,5 @@
 {
-  "appId": "com.long.roadsurvey",
+  "appId": "com.roadsurvey.app",
   "appName": "路面测量工作台",
   "webDir": "www",
   "server": {
