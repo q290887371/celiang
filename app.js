@@ -504,12 +504,11 @@ function stationInText(s) {
   return m ? parseStation(m[0]) : NaN;
 }
 function addLevelRow() {
-  const los = state.measureSetup.los;
   state.levelRows.push({
     _id: 'lv' + Date.now().toString(36) + Math.random().toString(36).slice(2),
     pt: '', bs: null, mid: null, fs: null,
-    los: (los !== '' && los != null) ? los : null,
-    elev: '',
+    los: null, losManual: false,
+    elev: '', elevManual: false,
     de: ''
   });
   saveAll(); renderLevelRows();
@@ -530,17 +529,56 @@ function clearAllLevels(btn) {
   saveAll(); renderLevelRows();
   toast('已清空水准测量记录');
 }
-// 高程 = 视线高 − 读数（前视优先，其次中间点，无读数按0）；偏差值(mm) = (高程 − 设计高程) × 1000
-function levelRowCalc(r) {
-  // 高程为手工录入值；偏差值(mm) = (高程 − 设计高程) × 1000
-  const elev = parseFloat(r.elev);
-  const de = parseFloat(r.de);
-  let dev = null;
-  if (!isNaN(elev) && !isNaN(de)) {
-    const mm = Math.round((elev - de) * 1000);
-    dev = (mm > 0 ? '+' + mm : String(mm));
-  }
-  return { elev: elev, dev: dev };
+// 偏差值(mm) = (高程 − 设计高程) × 1000，带正负号
+function levelDev(r) {
+  const e = parseFloat(r.elev), d = parseFloat(r.de);
+  if (isNaN(e) || isNaN(d)) return null;
+  const mm = Math.round((e - d) * 1000);
+  return (mm > 0 ? '+' + mm : String(mm));
+}
+// 水准测量递推（自上而下）：
+//   视线高 = 本行高程 + 本行后视（有后视的行设新仪器高，并向下沿用）
+//   本行高程 = 上一行视线高 − 本行中间点（或前视）
+// 高程/视线高若被手工填写，则以手工值为准（作为已知点/覆盖）
+function recomputeLevels() {
+  let los = null; // 当前视线高（上一站）
+  (state.levelRows || []).forEach(r => {
+    const fs = parseFloat(r.fs), mid = parseFloat(r.mid), bs = parseFloat(r.bs);
+    const haveLos = los !== null && !isNaN(los);
+    // ① 高程：非手工时按公式
+    if (!r.elevManual) {
+      let elev = NaN;
+      if (!isNaN(fs) && haveLos) elev = los - fs;
+      else if (!isNaN(mid) && haveLos) elev = los - mid;
+      else if (r.elev !== '' && !isNaN(parseFloat(r.elev))) elev = parseFloat(r.elev);
+      if (!isNaN(elev)) r.elev = elev;
+    }
+    const elev = parseFloat(r.elev);
+    // ② 视线高：非手工时 高程+后视，否则沿用上一站
+    if (r.losManual) {
+      const ml = parseFloat(r.los);
+      if (!isNaN(ml)) los = ml;
+    } else {
+      if (!isNaN(bs) && !isNaN(elev)) los = elev + bs;
+      if (los !== null && !isNaN(los)) r.los = los;
+    }
+    // ③ 偏差值
+    r.dev = levelDev(r);
+  });
+}
+// 只刷新各行计算单元格（不整表重渲，避免丢失输入焦点）
+function updateLevelCells() {
+  (state.levelRows || []).forEach(r => {
+    const lEl = document.getElementById('lv-los-' + r._id);
+    if (lEl) lEl.value = (r.los != null && r.los !== '') ? r.los : '';
+    const eEl = document.getElementById('lv-elev-' + r._id);
+    if (eEl) eEl.value = (r.elev !== '' && r.elev != null) ? r.elev : '';
+    const dEl = document.getElementById('lv-dev-' + r._id);
+    if (dEl) {
+      dEl.textContent = r.dev != null ? r.dev : '';
+      dEl.className = 'lv-dev' + (r.dev != null && r.dev !== '' && r.dev !== '0' ? (r.dev.startsWith('-') ? ' dev-negative' : ' dev-positive') : '');
+    }
+  });
 }
 function onLevelInput(id, field, val) {
   const r = state.levelRows.find(x => x._id === id);
@@ -556,37 +594,38 @@ function onLevelInput(id, field, val) {
         if (deEl) deEl.value = r.de;
       }
     }
+  } else if (field === 'elev') {
+    r.elev = (val === '' || val === null) ? '' : parseFloat(val);
+    r.elevManual = true;
+  } else if (field === 'los') {
+    r.los = (val === '' || val === null) ? null : parseFloat(val);
+    r.losManual = true;
   } else {
-    r[field] = (val === '' || val === null) ? (field === 'elev' ? '' : null) : parseFloat(val);
+    r[field] = (val === '' || val === null) ? null : parseFloat(val);
   }
-  const c = levelRowCalc(r);
-  // 高程列是用户正在输入的输入框本身，无需回写；只刷新偏差值
-  const dEl = document.getElementById('lv-dev-' + id);
-  if (dEl) {
-    dEl.textContent = c.dev !== null ? c.dev : '';
-    dEl.className = 'lv-dev' + (c.dev !== null && c.dev !== '' && c.dev !== '0' ? (c.dev.startsWith('-') ? ' dev-negative' : ' dev-positive') : '');
-  }
+  recomputeLevels();
+  updateLevelCells();
   saveAll();
 }
 function renderLevelRows() {
   const body = document.getElementById('levelBody');
   if (!body) return;
+  recomputeLevels();
   if (!state.levelRows.length) {
-    body.innerHTML = '<tr><td colspan="9" class="empty-state"><p>暂无记录，点下方「添加测量行」开始录入（自动带入当前视线高）</p></td></tr>';
+    body.innerHTML = '<tr><td colspan="9" class="empty-state"><p>暂无记录，点下方「添加测量行」开始录入；先在第1行输入 已知点高程+后视 得到视线高，后续输入 中间点/前视 自动算高程</p></td></tr>';
     return;
   }
   body.innerHTML = state.levelRows.map(r => {
-    const c = levelRowCalc(r);
-    const devCls = c.dev !== null && c.dev !== '' && c.dev !== '0' ? (c.dev.startsWith('-') ? 'dev-negative' : 'dev-positive') : '';
+    const devCls = r.dev != null && r.dev !== '' && r.dev !== '0' ? (r.dev.startsWith('-') ? 'dev-negative' : 'dev-positive') : '';
     return `<tr>
-      <td><input type="text" value="${r.pt || ''}" placeholder="如 K0+800中" oninput="onLevelInput('${r._id}','pt',this.value)" style="width:96px"></td>
+      <td><input type="text" value="${r.pt || ''}" placeholder="如 K0+800中/BM1" oninput="onLevelInput('${r._id}','pt',this.value)" style="width:96px"></td>
       <td><input type="number" step="0.001" value="${r.bs != null ? r.bs : ''}" oninput="onLevelInput('${r._id}','bs',this.value)"></td>
       <td><input type="number" step="0.001" value="${r.mid != null ? r.mid : ''}" oninput="onLevelInput('${r._id}','mid',this.value)"></td>
       <td><input type="number" step="0.001" value="${r.fs != null ? r.fs : ''}" oninput="onLevelInput('${r._id}','fs',this.value)"></td>
-      <td><input type="number" step="0.001" value="${r.los != null && r.los !== '' ? r.los : ''}" oninput="onLevelInput('${r._id}','los',this.value)" title="视线高=水准点高程+后视读数"></td>
-      <td><input type="number" step="0.001" id="lv-elev-${r._id}" value="${r.elev != null && r.elev !== '' ? r.elev : ''}" oninput="onLevelInput('${r._id}','elev',this.value)" placeholder="高程"></td>
+      <td><input type="number" step="0.001" id="lv-los-${r._id}" value="${r.los != null && r.los !== '' ? r.los : ''}" oninput="onLevelInput('${r._id}','los',this.value)" title="视线高=高程+后视（自动算，可手工覆盖）"></td>
+      <td><input type="number" step="0.001" id="lv-elev-${r._id}" value="${r.elev !== '' && r.elev != null ? r.elev : ''}" oninput="onLevelInput('${r._id}','elev',this.value)" placeholder="高程" title="高程=上一行视线高−中间点(或前视)；首行/已知点手工填"></td>
       <td><input type="number" step="0.001" id="lv-de-${r._id}" value="${r.de || ''}" oninput="onLevelInput('${r._id}','de',this.value)" placeholder="自动匹配"></td>
-      <td class="lv-dev ${devCls}" id="lv-dev-${r._id}">${c.dev !== null ? c.dev : ''}</td>
+      <td class="lv-dev ${devCls}" id="lv-dev-${r._id}">${r.dev != null ? r.dev : ''}</td>
       <td><button class="btn btn-sm btn-danger" onclick="deleteLevelRow('${r._id}')">删</button></td>
     </tr>`;
   }).join('');
@@ -595,13 +634,13 @@ function exportLevelXLSX() {
   const rows = state.levelRows || [];
   if (!rows.length) { toast('暂无水准测量记录可导出'); return; }
   if (typeof buildStyledXLSX === 'undefined') { toast('xlsx 导出库未加载，无法导出'); return; }
+  recomputeLevels();
   const cell = (v, s) => ({ v: v, s: s });
   const _num = (v, d) => (v === null || v === undefined || v === '' || isNaN(Number(v))) ? null : +Number(v).toFixed(d);
   const out = [];
   out.push([cell('测点', 16), cell('水准尺读数', 16), null, null, cell('视线高', 16), cell('高程\n(m)', 16), cell('设计高程\n(m)', 16), cell('偏差值\n(mm)', 16)]);
   out.push([null, cell('后视', 17), cell('中间点', 17), cell('前视', 17), null, null, null, null]);
   rows.forEach(r => {
-    const c = levelRowCalc(r);
     out.push([
       cell(r.pt || '', 20),
       _num(r.bs, 3) === null ? null : cell(_num(r.bs, 3), 19),
@@ -610,7 +649,7 @@ function exportLevelXLSX() {
       _num(r.los, 3) === null ? null : cell(_num(r.los, 3), 19),
       _num(r.elev, 3) === null ? null : cell(_num(r.elev, 3), 19),
       _num(r.de, 3) === null ? null : cell(_num(r.de, 3), 19),
-      c.dev !== null ? cell(c.dev, 18) : null
+      r.dev != null ? cell(r.dev, 18) : null
     ]);
   });
   const rowHeights = { 1: 28, 2: 18 };
