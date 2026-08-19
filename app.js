@@ -509,6 +509,7 @@ function addLevelRow() {
     _id: 'lv' + Date.now().toString(36) + Math.random().toString(36).slice(2),
     pt: '', bs: null, mid: null, fs: null,
     los: (los !== '' && los != null) ? los : null,
+    elev: '',
     de: ''
   });
   saveAll(); renderLevelRows();
@@ -531,10 +532,8 @@ function clearAllLevels(btn) {
 }
 // 高程 = 视线高 − 读数（前视优先，其次中间点，无读数按0）；偏差值(mm) = (高程 − 设计高程) × 1000
 function levelRowCalc(r) {
-  const los = parseFloat(r.los);
-  const read = r.fs !== null && r.fs !== '' && !isNaN(parseFloat(r.fs))
-    ? parseFloat(r.fs) : (r.mid !== null && r.mid !== '' && !isNaN(parseFloat(r.mid)) ? parseFloat(r.mid) : NaN);
-  const elev = !isNaN(los) ? (los - (isNaN(read) ? 0 : read)) : NaN;
+  // 高程为手工录入值；偏差值(mm) = (高程 − 设计高程) × 1000
+  const elev = parseFloat(r.elev);
   const de = parseFloat(r.de);
   let dev = null;
   if (!isNaN(elev) && !isNaN(de)) {
@@ -558,11 +557,10 @@ function onLevelInput(id, field, val) {
       }
     }
   } else {
-    r[field] = (val === '' || val === null) ? null : parseFloat(val);
+    r[field] = (val === '' || val === null) ? (field === 'elev' ? '' : null) : parseFloat(val);
   }
   const c = levelRowCalc(r);
-  const eEl = document.getElementById('lv-elev-' + id);
-  if (eEl) eEl.value = !isNaN(c.elev) ? c.elev.toFixed(3) : '';
+  // 高程列是用户正在输入的输入框本身，无需回写；只刷新偏差值
   const dEl = document.getElementById('lv-dev-' + id);
   if (dEl) {
     dEl.textContent = c.dev !== null ? c.dev : '';
@@ -586,7 +584,7 @@ function renderLevelRows() {
       <td><input type="number" step="0.001" value="${r.mid != null ? r.mid : ''}" oninput="onLevelInput('${r._id}','mid',this.value)"></td>
       <td><input type="number" step="0.001" value="${r.fs != null ? r.fs : ''}" oninput="onLevelInput('${r._id}','fs',this.value)"></td>
       <td><input type="number" step="0.001" value="${r.los != null && r.los !== '' ? r.los : ''}" oninput="onLevelInput('${r._id}','los',this.value)" title="视线高=水准点高程+后视读数"></td>
-      <td><input class="calculated" id="lv-elev-${r._id}" value="${!isNaN(c.elev) ? c.elev.toFixed(3) : ''}" readonly></td>
+      <td><input type="number" step="0.001" id="lv-elev-${r._id}" value="${r.elev != null && r.elev !== '' ? r.elev : ''}" oninput="onLevelInput('${r._id}','elev',this.value)" placeholder="高程"></td>
       <td><input type="number" step="0.001" id="lv-de-${r._id}" value="${r.de || ''}" oninput="onLevelInput('${r._id}','de',this.value)" placeholder="自动匹配"></td>
       <td class="lv-dev ${devCls}" id="lv-dev-${r._id}">${c.dev !== null ? c.dev : ''}</td>
       <td><button class="btn btn-sm btn-danger" onclick="deleteLevelRow('${r._id}')">删</button></td>
@@ -610,7 +608,7 @@ function exportLevelXLSX() {
       _num(r.mid, 3) === null ? null : cell(_num(r.mid, 3), 19),
       _num(r.fs, 3) === null ? null : cell(_num(r.fs, 3), 19),
       _num(r.los, 3) === null ? null : cell(_num(r.los, 3), 19),
-      !isNaN(c.elev) ? cell(+c.elev.toFixed(3), 19) : null,
+      _num(r.elev, 3) === null ? null : cell(_num(r.elev, 3), 19),
       _num(r.de, 3) === null ? null : cell(_num(r.de, 3), 19),
       c.dev !== null ? cell(c.dev, 18) : null
     ]);

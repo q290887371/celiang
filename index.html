@@ -10,9 +10,9 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
   <link rel="apple-touch-icon" href="assets/icon.svg">
-  <link rel="stylesheet" href="styles.css?v=20260819c">
-  <script src="lib/sql-wasm.js?v=20260819c"></script>
-  <script src="lib/xlsx-export.js?v=20260819c"></script>
+  <link rel="stylesheet" href="styles.css?v=20260819d">
+  <script src="lib/sql-wasm.js?v=20260819d"></script>
+  <script src="lib/xlsx-export.js?v=20260819d"></script>
 </head>
 <body>
 
@@ -152,7 +152,7 @@
           <span>水准测量记录</span>
           <button class="btn btn-sm" onclick="exportLevelXLSX()">导出XLSX</button>
         </div>
-        <div class="section-label">水准测量记录表：填 测点/后视/中间点/前视/视线高/设计高程；高程=视线高−读数（前视优先、其次中间点），偏差值(mm)=(高程−设计高程)×1000 自动计算。测点含桩号（如 K0+800中）自动匹配设计高程。</div>
+        <div class="section-label">水准测量记录表：填 测点/后视/中间点/前视/视线高/设计高程；高程(m) 手工录入，偏差值(mm)=(高程−设计高程)×1000 自动计算。测点含桩号（如 K0+800中）自动匹配设计高程。</div>
         <div class="table-wrapper table-scroll">
           <table class="data-table" id="levelTable">
             <thead>
@@ -250,6 +250,6 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="app.js?v=20260819c"></script>
+  <script src="app.js?v=20260819d"></script>
 </body>
 </html>
