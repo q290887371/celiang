@@ -531,7 +531,7 @@ function deleteLevelRow(id) {
   const r = state.levelRows.find(x => x._id === id);
   state.levelRows = state.levelRows.filter(x => x._id !== id);
   if (r) clearLevelOrigSync(r); // 同步清空原始数据表对应桩号+方位
-  renderLevelRows(); renderOriginalData(); saveAll();
+  renderLevelRows(); renderOriginalData(); renderMeasures(); saveAll();
 }
 // 删除水准测量记录行时，清空原始数据录入表对应桩号+方位的读数；若该桩号行已无任何读数则整行移除
 function clearLevelOrigSync(r) {
@@ -647,6 +647,7 @@ function syncLevelToOrigData(r) {
   const v = (r.mid !== null && r.mid !== '' && !isNaN(parseFloat(r.mid))) ? parseFloat(r.mid) : null;
   row.originalData[idx] = v;
   renderOriginalData();
+  renderMeasures(); // 同步刷新测量录入计算表
 }
 function onLevelInput(id, field, val) {
   const r = state.levelRows.find(x => x._id === id);
