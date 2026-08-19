@@ -22,7 +22,7 @@ function defaultState() {
       looseThickness: 0.0,
       crossSlope: 0.02,
       offsets: [0, 5, 10],
-      tolerance: 5,
+      tolerance: { upper: 5, lower: -5, warn: 3 },
       benchmarks: [
         { name: 'BM1', elevation: 9.0 },
         { name: 'BM2', elevation: 9.5 }
@@ -253,7 +253,10 @@ function bindProjectInputs() {
   document.getElementById('off1').value = state.project.offsets[0];
   document.getElementById('off2').value = state.project.offsets[1];
   document.getElementById('off3').value = state.project.offsets[2];
-  document.getElementById('tolerance').value = state.project.tolerance;
+  const tc = tolConfig();
+  const uEl = document.getElementById('tolUpper'); if (uEl) uEl.value = tc.upper;
+  const lEl = document.getElementById('tolLower'); if (lEl) lEl.value = tc.lower;
+  const wEl = document.getElementById('tolWarn'); if (wEl) wEl.value = tc.warn;
 }
 function onProjectChange() {
   state.project.looseThickness = parseFloat(document.getElementById('looseThickness').value) || 0;
@@ -263,7 +266,11 @@ function onProjectChange() {
     parseFloat(document.getElementById('off2').value) || 0,
     parseFloat(document.getElementById('off3').value) || 0
   ];
-  state.project.tolerance = parseFloat(document.getElementById('tolerance').value) || 0;
+  state.project.tolerance = {
+    upper: parseFloat(document.getElementById('tolUpper').value) || 5,
+    lower: parseFloat(document.getElementById('tolLower').value) || -5,
+    warn: parseFloat(document.getElementById('tolWarn').value) || 3
+  };
   saveAll(); renderMeasures(); renderControlList();
 }
 
@@ -549,8 +556,9 @@ function renderMeasures() {
     const meCells = state.showMeasureElev ? me.map(v =>
       `<td><input class="calculated" value="${v !== null ? v.toFixed(4) : ''}" readonly></td>`).join('') : '';
     const mdCells = state.showMeasureDiff ? md.map(v => {
-      if (v === null || v === '') return '<td class="calculated text-muted">-</td>';
-      const cls = Math.abs(v) > (state.project.tolerance || 0) / 1000 ? (v > 0 ? 'dev-positive' : 'dev-negative') : 'dev-zero';
+      if (v === null || v === '' || isNaN(v)) return '<td class="calculated text-muted">-</td>';
+      const j = judgeDiff(v);
+      const cls = j === 2 ? (v > 0 ? 'dev-positive' : 'dev-negative') : j === 1 ? 'dev-warn' : 'dev-zero';
       return `<td class="calculated diff ${cls}">${v.toFixed(3)}</td>`;
     }).join('') : '';
     const drCells = state.showMeasureOrig ? dr.map(v =>
@@ -614,7 +622,6 @@ function renderResults() {
 }
 function sessionModuleHTML(s, num) {
   const pts = '<th>南</th><th>南腰</th><th>中</th><th>北腰</th><th>北</th>';
-  const tol = (state.project.tolerance || 0) / 1000;
   const eE = state.showSessionElev, eD = state.showSessionDiff, eO = state.showSessionOrig;
   const gE = eE ? '<th colspan="5" style="background:rgba(76,175,80,0.12)">测量高程</th>' : '';
   const gD = eD ? '<th colspan="5" style="background:rgba(33,150,243,0.12)">测量差值</th>' : '';
@@ -626,8 +633,9 @@ function sessionModuleHTML(s, num) {
     const od = r.originalData || [null, null, null, null, null];
     const meCells = eE ? me.map(v => `<td class="calculated grp-elev">${v !== null ? v.toFixed(4) : ''}</td>`).join('') : '';
     const mdCells = eD ? md.map(v => {
-      if (v === null || v === '') return '<td class="calculated text-muted grp-diff">-</td>';
-      const cls = Math.abs(v) > tol ? (v > 0 ? 'dev-positive' : 'dev-negative') : 'dev-zero';
+      if (v === null || v === '' || isNaN(v)) return '<td class="calculated text-muted grp-diff">-</td>';
+      const j = judgeDiff(v);
+      const cls = j === 2 ? (v > 0 ? 'dev-positive' : 'dev-negative') : j === 1 ? 'dev-warn' : 'dev-zero';
       return `<td class="calculated diff grp-diff ${cls}">${v.toFixed(3)}</td>`;
     }).join('') : '';
     const odCells = eO ? od.map(v => `<td class="calculated grp-orig">${v !== null ? v.toFixed(4) : ''}</td>`).join('') : '';
@@ -673,35 +681,61 @@ function toggleSessionCol(which, on) {
 }
 
 /* ============================================================
-   质量情况 · 测量差值分析（逐桩号判定）
+   质量情况 · 测量差值分析（沿用桌面版工作台：上下限+警告阈值三档判定）
    ============================================================ */
+// 容差配置归一化：新版为 { upper, lower, warn }(mm)；老数据为单一对称值(如 5)
+// 老数据无警告阈值，按 warn=上限 处理（保持两档：合格/不合格）
+function tolConfig() {
+  const t = state.project.tolerance;
+  if (t && typeof t === 'object' && 'upper' in t && 'lower' in t) {
+    const u = parseFloat(t.upper), l = parseFloat(t.lower);
+    if (!isNaN(u) && !isNaN(l)) {
+      let w = t.warn !== undefined ? parseFloat(t.warn) : NaN;
+      if (isNaN(w)) w = Math.max(Math.abs(u), Math.abs(l));
+      return { upper: u, lower: l, warn: w };
+    }
+  }
+  const n = parseFloat(t) || 5;
+  return { upper: n, lower: -n, warn: n };
+}
+// 三档判定：0=合格 1=警告 2=不合格 -1=无数据（v 单位 m，判定阈值单位 mm）
+function judgeDiff(v) {
+  if (v === null || v === undefined || isNaN(v)) return -1;
+  const tol = tolConfig();
+  const mm = v * 1000;
+  if (mm > tol.upper || mm < tol.lower) return 2;
+  if (Math.abs(mm) > tol.warn) return 1;
+  return 0;
+}
+
 function renderQuality() {
   const sessions = state.measureSessions || [];
-  const tol = (state.project.tolerance || 0) / 1000; // mm → m
+  const tol = tolConfig();
   const pts = ['南', '南腰', '中', '北腰', '北'];
-  let totalSt = 0, passSt = 0, totalPts = 0, passPts = 0;
+  let totalSt = 0, totalPts = 0, passPts = 0, warnPts = 0, failPts = 0;
   let maxAbs = 0, sumAbs = 0, cntAbs = 0;
   const cards = sessions.map((s, idx) => {
     const rowsHtml = (s.rows || []).map(r => {
       const md = r.measureDiff || [null, null, null, null, null];
-      let overN = 0, maxAbsRow = 0;
+      let warnN = 0, failN = 0, maxAbsRow = 0;
       const cells = md.map(v => {
-        if (v === null || v === '') return '<td class="calculated text-muted">-</td>';
+        if (v === null || v === '' || isNaN(v)) return '<td class="calculated text-muted">-</td>';
+        const j = judgeDiff(v);
+        if (j === 2) failN++; else if (j === 1) warnN++;
         const a = Math.abs(v);
         if (a > maxAbsRow) maxAbsRow = a;
-        if (a > tol) overN++;
-        const cls = a > tol ? (v > 0 ? 'dev-positive' : 'dev-negative') : 'dev-zero';
+        const cls = j === 2 ? (v > 0 ? 'dev-positive' : 'dev-negative') : j === 1 ? 'dev-warn' : 'dev-zero';
         return `<td class="calculated diff ${cls}">${v.toFixed(3)}</td>`;
       }).join('');
       totalSt++;
-      const valid = md.filter(v => v !== null && v !== '');
+      const valid = md.filter(v => v !== null && v !== '' && !isNaN(v));
       totalPts += valid.length;
-      valid.forEach(v => { sumAbs += Math.abs(v); cntAbs++; if (Math.abs(v) > maxAbs) maxAbs = Math.abs(v); });
-      if (overN === 0) { passSt++; passPts += valid.length; }
-      else passPts += valid.filter(v => Math.abs(v) <= tol).length;
-      const badge = overN === 0
-        ? '<span class="q-badge pass">合格</span>'
-        : `<span class="q-badge fail">超限 ${overN} 点</span>`;
+      valid.forEach(v => { const j = judgeDiff(v); if (j === 0) passPts++; else if (j === 1) warnPts++; else failPts++; sumAbs += Math.abs(v); cntAbs++; if (Math.abs(v) > maxAbs) maxAbs = Math.abs(v); });
+      const badge = failN > 0
+        ? `<span class="q-badge fail">不合格 ${failN} 点</span>`
+        : warnN > 0
+          ? `<span class="q-badge warn">警告 ${warnN} 点</span>`
+          : '<span class="q-badge pass">合格</span>';
       return `<tr>
         <td class="station-cell">${r.station || ''}</td>
         <td>${r.designElev || ''}</td>
@@ -717,7 +751,7 @@ function renderQuality() {
       <div class="session-meta">
         <span><b>水准点：</b>${s.benchmarkName || '—'}</span>
         <span><b>视线高：</b>${s.los !== '' && s.los != null ? s.los + ' m' : '—'}</span>
-        <span><b>容许偏差：</b>±${state.project.tolerance || 0} mm</span>
+        <span><b>容许偏差：</b>上${tol.upper}/下${tol.lower}/警${tol.warn} mm</span>
         <span class="text-sm text-muted">共 ${s.rows ? s.rows.length : 0} 个桩号</span>
       </div>
       <div class="table-wrapper table-scroll">
@@ -731,14 +765,15 @@ function renderQuality() {
       </div>
     </div>`;
   }).join('');
-  const rate = totalSt ? (passSt / totalSt * 100) : 0;
+  const permille = totalPts ? (passPts / totalPts * 100) : 0;
   const avgAbs = cntAbs ? (sumAbs / cntAbs * 1000) : 0;
   const st = document.getElementById('qualityStats');
   if (st) st.innerHTML = `
     <div class="stat-card"><div class="stat-label">模块数</div><div class="stat-value info">${sessions.length}</div></div>
     <div class="stat-card"><div class="stat-label">桩号总数</div><div class="stat-value info">${totalSt}</div></div>
-    <div class="stat-card"><div class="stat-label">合格桩号</div><div class="stat-value success">${passSt}</div></div>
-    <div class="stat-card"><div class="stat-label">合格率</div><div class="stat-value ${rate >= 90 ? 'success' : 'warning'}">${rate.toFixed(1)}%</div></div>
+    <div class="stat-card"><div class="stat-label">合格率(点)</div><div class="stat-value ${permille >= 90 ? 'success' : permille >= 80 ? 'warning' : 'fail'}">${permille.toFixed(1)}%</div></div>
+    <div class="stat-card"><div class="stat-label">警告点</div><div class="stat-value warning">${warnPts}</div></div>
+    <div class="stat-card"><div class="stat-label">不合格点</div><div class="stat-value fail">${failPts}</div></div>
     <div class="stat-card"><div class="stat-label">最大偏差</div><div class="stat-value warning">${(maxAbs * 1000).toFixed(1)} mm</div></div>
     <div class="stat-card"><div class="stat-label">平均偏差(绝对)</div><div class="stat-value info">${avgAbs.toFixed(1)} mm</div></div>`;
   const box = document.getElementById('qualityContainer');

@@ -189,6 +189,7 @@ button { cursor: pointer; border: none; border-radius: 9px; padding: 11px 14px; 
 /* 质量情况页：合格/超限徽标 */
 .q-badge { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 12px; font-weight: 700; white-space: nowrap; }
 .q-badge.pass { background: rgba(76, 175, 80, .18); color: #81c784; }
+.q-badge.warn { background: rgba(255, 152, 0, .18); color: #ffb74d; }
 .q-badge.fail { background: rgba(255, 107, 107, .16); color: #ff6b6b; }
 
 /* ===== 表格 ===== */
@@ -205,6 +206,7 @@ table.data-table .row-control td { background: rgba(240,160,32,0.08); }
 .dev-positive { color: #ff6b6b !important; font-weight: 700; }
 .dev-negative { color: #4dd0a0 !important; font-weight: 700; }
 .dev-zero { color: var(--success) !important; }
+.dev-warn { color: var(--warning) !important; font-weight: 600; }
 /* 测量录入/结果页：三列组颜色区分（绿=测量高程 / 橙=设计读数 / 蓝=测量差值） */
 .grp-elev { background: rgba(76,175,80,0.15) !important; }
 .grp-orig { background: rgba(255,152,0,0.13) !important; }
