@@ -608,6 +608,32 @@ function updateLevelCells() {
     }
   });
 }
+// 测点方位 → 原始数据列索引（南/南腰/中/北腰/北 = 0/1/2/3/4）
+function azimuthIndex(pt) {
+  const p = String(pt || '');
+  if (p.includes('腰')) return p.includes('南') ? 1 : 3;
+  if (p.includes('南')) return 0;
+  if (p.includes('北')) return 4;
+  return 2; // 中 / 无方位
+}
+// 把水准测量记录某行的「中间点」读数同步到原始数据录入表：对应桩号 + 对应方位
+function syncLevelToOrigData(r) {
+  const sm = stationInText(r.pt);
+  if (isNaN(sm)) return;
+  const idx = azimuthIndex(r.pt);
+  const st = formatStation(sm);
+  let row = state.measures.find(m => parseStation(m.station) === sm);
+  if (!row) {
+    const de = elevationAtStation(sm);
+    row = { _id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2),
+      station: st, designElev: !isNaN(de) ? de.toFixed(4) : '',
+      originalData: [null, null, null, null, null], isControl: false };
+    state.measures.push(row);
+  }
+  const v = (r.mid !== null && r.mid !== '' && !isNaN(parseFloat(r.mid))) ? parseFloat(r.mid) : null;
+  row.originalData[idx] = v;
+  renderOriginalData();
+}
 function onLevelInput(id, field, val) {
   const r = state.levelRows.find(x => x._id === id);
   if (!r) return;
@@ -628,6 +654,8 @@ function onLevelInput(id, field, val) {
   }
   recomputeLevels();
   updateLevelCells();
+  // 中间点读数 → 同步到原始数据录入表（对应桩号+方位）
+  if (field === 'mid') syncLevelToOrigData(r);
   saveAll();
 }
 function renderLevelRows() {
