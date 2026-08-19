@@ -12,12 +12,15 @@ function defaultState() {
     project: {
       name: '兴运道东段沥青混凝土路面测量',
       layers: [
-        { key: 'asphalt', name: '沥青混凝土面层', thickness: 0.09 },
-        { key: 'grave', name: '级配碎石基层', thickness: 0.18 },
-        { key: 'lime', name: '石灰稳定土底基层', thickness: 0.20 }
+        { key: 'ac_fine',   name: '细粒式沥青混凝土上面层', thickness: 0.04 },
+        { key: 'ac_mid',    name: '中粒式沥青混凝土中面层', thickness: 0.06 },
+        { key: 'ac_coarse', name: '粗粒式沥青混凝土下面层', thickness: 0.08 },
+        { key: 'cs_upper',  name: '水泥稳定粒料上基层', thickness: 0.18 },
+        { key: 'cs_lower',  name: '水泥稳定粒料下基层', thickness: 0.20 },
+        { key: 'lime_sub',  name: '石灰稳定土底基层', thickness: 0.20 }
       ],
-      subItem: 'asphalt',
-      layerTotalThickness: 0.47,
+      subItem: 'ac_fine',
+      layerTotalThickness: 0.76,
       looseThickness: 0.05,
       crossSlope: 0.02,
       offsets: [0, 5, 10],
