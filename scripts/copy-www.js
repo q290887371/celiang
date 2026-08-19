@@ -21,6 +21,7 @@ const files = [
   'manifest.webmanifest',
   'lib/sql-wasm.js',
   'lib/sql-wasm.wasm',
+  'lib/xlsx-export.js',
   'assets/icon.svg'
 ];
 

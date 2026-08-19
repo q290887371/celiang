@@ -12,6 +12,7 @@
   <link rel="apple-touch-icon" href="assets/icon.svg">
   <link rel="stylesheet" href="styles.css">
   <script src="lib/sql-wasm.js"></script>
+  <script src="lib/xlsx-export.js"></script>
 </head>
 <body>
 
@@ -185,7 +186,7 @@
       <div class="card">
         <div class="card-title">
           <span>测量模块汇总</span>
-          <button class="btn btn-sm" onclick="exportSessionsCSV()">导出CSV</button>
+          <button class="btn btn-sm" onclick="exportSessionsXLSX()">导出XLSX</button>
         </div>
         <div class="col-toggles">
           <span class="toggle-label">可选展示列：</span>

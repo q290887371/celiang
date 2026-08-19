@@ -654,49 +654,49 @@ function toggleSessionCol(which, on) {
   else if (which === 'orig') state.showSessionOrig = on;
   renderResults(); saveAll();
 }
-function exportSessionsCSV() {
+function exportSessionsXLSX() {
   const sessions = state.measureSessions || [];
   if (!sessions.length) { toast('暂无模块可导出'); return; }
+  if (typeof buildStyledXLSX === 'undefined') { toast('xlsx 导出库未加载，无法导出'); return; }
   const subLayer = state.project.layers.find(l => l.key === state.project.subItem);
   const subName = subLayer ? subLayer.name : (state.project.subItem || '—');
   const now = new Date().toLocaleString('zh-CN', { hour12: false });
-  const lines = [];
-  // 顶部工程信息块
-  lines.push('路面测量工作台 · 测量模块汇总');
-  lines.push('工程名称,' + (state.project.name || ''));
-  lines.push('分项工程,' + subName);
-  lines.push('导出时间,' + now);
-  lines.push(''); // 空行分隔
-  // 偏距点位表头
   const pts = ['南', '南腰', '中', '北腰', '北'];
-  const ptHeader = pts.map(p => p + '(m)').join(',');
-  // 一个模块一张完整宽表：三部分（测量高程 / 原始数据 / 测量差值）横向并列，表头用前缀区分
   const colHeader = ['桩号', '设计标高(m)',
-    '测量高程(南)', '测量高程(南腰)', '测量高程(中)', '测量高程(北腰)', '测量高程(北)',
-    '原始数据(南)', '原始数据(南腰)', '原始数据(中)', '原始数据(北腰)', '原始数据(北)',
-    '测量差值(南)', '测量差值(南腰)', '测量差值(中)', '测量差值(北腰)', '测量差值(北)'];
-  sessions.forEach((s, i) => {
-    lines.push('模块,# ' + (i + 1) + ',保存时间,' + (s.timestamp || '') + ',水准点,' + (s.benchmarkName || '—') + ',桩号数,' + (s.rows ? s.rows.length : 0));
-    lines.push('水准点高程(m),' + (s.benchmarkElev !== undefined && s.benchmarkElev !== '' ? s.benchmarkElev : '') +
-      ',后视读数(m),' + (s.backsight !== undefined ? s.backsight : '') +
-      ',视线高(m),' + (s.los !== undefined && s.los !== '' ? s.los : ''));
-    lines.push('');
-    // 表头分组标注（测量高程 / 原始数据 / 测量差值 三块）
-    lines.push(',,【测量高程】,,,（南/南腰/中/北腰/北）,,【原始数据】,,,（南/南腰/中/北腰/北）,,【测量差值】,,,（南/南腰/中/北腰/北）');
-    lines.push(colHeader.join(','));
+    ...pts.map(p => '测量高程(' + p + ')'), ...pts.map(p => '原始数据(' + p + ')'), ...pts.map(p => '测量差值(' + p + ')')];
+  const cell = (v, s) => ({ v: v, s: s });
+  const _num = (v, d) => (v === null || v === undefined || v === '' || isNaN(Number(v))) ? '' : +Number(v).toFixed(d);
+  // 每个模块一张 sheet（一个模块一整个部分）；三块列横向并列，配色与结果页一致：
+  // 1 标题(深底白字) 2 标签(灰底白字) 3 值(左) 4 数字4位 5 数字3位
+  // 6 分组-绿 7 分组-橙 8 分组-蓝  9 表头-绿 10 表头-橙 11 表头-蓝
+  // 12 数据-绿 13 数据-橙 14 数据-蓝 15 桩号(粗)
+  const sheets = sessions.map((s, i) => {
+    const rows = [];
+    rows.push([cell('路面测量工作台 · 测量模块汇总', 1)]);
+    rows.push([cell('工程名称', 2), cell(state.project.name || '', 3)]);
+    rows.push([cell('分项工程', 2), cell(subName, 3)]);
+    rows.push([cell('导出时间', 2), cell(now, 3)]);
+    rows.push([]);
+    rows.push([cell('模块 #' + (i + 1), 2), null, cell('保存时间', 2), cell(s.timestamp || '', 3),
+      cell('水准点', 2), cell(s.benchmarkName || '—', 3), cell('桩号数', 2), cell((s.rows ? s.rows.length : 0), 3)]);
+    rows.push([cell('水准点高程(m)', 2), cell(_num(s.benchmarkElev, 4), 4),
+      cell('后视读数(m)', 2), cell(_num(s.backsight, 4), 4), cell('视线高(m)', 2), cell(_num(s.los, 4), 4)]);
+    rows.push([]);
+    const grp = Array(17).fill(null);
+    grp[2] = cell('【测量高程】', 6); grp[7] = cell('【原始数据】', 7); grp[12] = cell('【测量差值】', 8);
+    rows.push(grp);
+    rows.push(colHeader.map((t, idx) => idx <= 1 ? cell(t, 2) : idx <= 6 ? cell(t, 9) : idx <= 11 ? cell(t, 10) : cell(t, 11)));
     (s.rows || []).forEach(r => {
       const me = r.measureElev || [], md = r.measureDiff || [], od = r.originalData || [];
-      const row = [r.station, r.designElev,
-        ...me.map(v => v !== null ? v.toFixed(4) : ''),
-        ...od.map(v => v !== null ? v.toFixed(4) : ''),
-        ...md.map(v => v !== null ? v.toFixed(3) : '')];
-      lines.push(row.map(csvCell).join(','));
+      rows.push([cell(r.station || '', 15), cell(_num(r.designElev, 4), 4),
+        ...me.map(v => cell(_num(v, 4), 12)), ...od.map(v => cell(_num(v, 4), 13)), ...md.map(v => cell(_num(v, 3), 14))]);
     });
-    lines.push(''); // 模块间空行
+    return { name: '模块' + (i + 1), rows: rows, merges: ['A1:Q1', 'C9:G9', 'H9:L9', 'M9:Q9'],
+      freeze: { x: 2, y: 10 }, cols: [{ w: 11 }, { w: 12 }, ...Array(15).fill({ w: 11 })] };
   });
-  const csv = '﻿' + lines.join('\r\n');
-  downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), '测量模块汇总.csv');
-  toast('已导出 CSV');
+  const bytes = buildStyledXLSX(sheets);
+  downloadBlob(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), '测量模块汇总.xlsx');
+  toast('已导出 XLSX');
 }
 function csvCell(v) {
   const s = String(v == null ? '' : v);
