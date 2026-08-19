@@ -198,6 +198,10 @@ table.data-table .row-control td { background: rgba(240,160,32,0.08); }
 .dev-positive { color: #ff6b6b !important; font-weight: 700; }
 .dev-negative { color: #4dd0a0 !important; font-weight: 700; }
 .dev-zero { color: var(--success) !important; }
+/* 测量录入/结果页：三列组颜色区分（绿=测量高程 / 橙=原始数据 / 蓝=测量差值） */
+.grp-elev { background: rgba(76,175,80,0.15) !important; }
+.grp-orig { background: rgba(255,152,0,0.13) !important; }
+.grp-diff { background: rgba(33,150,243,0.15) !important; }
 .text-muted { color: var(--text-muted); }
 .text-sm { font-size: 12px; }
 .empty-state { text-align: center; color: var(--text-muted); padding: 28px 14px; }

@@ -607,13 +607,13 @@ function sessionModuleHTML(s, num) {
     const me = r.measureElev || [null, null, null, null, null];
     const md = r.measureDiff || [null, null, null, null, null];
     const od = r.originalData || [null, null, null, null, null];
-    const meCells = eE ? me.map(v => `<td class="calculated">${v !== null ? v.toFixed(4) : ''}</td>`).join('') : '';
+    const meCells = eE ? me.map(v => `<td class="calculated grp-elev">${v !== null ? v.toFixed(4) : ''}</td>`).join('') : '';
     const mdCells = eD ? md.map(v => {
-      if (v === null || v === '') return '<td class="calculated text-muted">-</td>';
+      if (v === null || v === '') return '<td class="calculated text-muted grp-diff">-</td>';
       const cls = Math.abs(v) > tol ? (v > 0 ? 'dev-positive' : 'dev-negative') : 'dev-zero';
-      return `<td class="calculated diff ${cls}">${v.toFixed(3)}</td>`;
+      return `<td class="calculated diff grp-diff ${cls}">${v.toFixed(3)}</td>`;
     }).join('') : '';
-    const odCells = eO ? od.map(v => `<td class="calculated">${v !== null ? v.toFixed(4) : ''}</td>`).join('') : '';
+    const odCells = eO ? od.map(v => `<td class="calculated grp-orig">${v !== null ? v.toFixed(4) : ''}</td>`).join('') : '';
     return `<tr><td class="station-cell">${r.station || ''}</td><td>${r.designElev || ''}</td>${meCells}${mdCells}${odCells}</tr>`;
   }).join('');
   return `<div class="card session-module">
@@ -667,25 +667,29 @@ function exportSessionsCSV() {
   lines.push('分项工程,' + subName);
   lines.push('导出时间,' + now);
   lines.push(''); // 空行分隔
-  // 数据列头（易懂中文）
+  // 偏距点位表头
+  const pts = ['南', '南腰', '中', '北腰', '北'];
+  const ptHeader = pts.map(p => p + '(m)').join(',');
+  // 一个模块一张完整宽表：三部分（测量高程 / 原始数据 / 测量差值）横向并列，表头用前缀区分
   const colHeader = ['桩号', '设计标高(m)',
     '测量高程(南)', '测量高程(南腰)', '测量高程(中)', '测量高程(北腰)', '测量高程(北)',
-    '测量差值(南)', '测量差值(南腰)', '测量差值(中)', '测量差值(北腰)', '测量差值(北)',
-    '原始数据(南)', '原始数据(南腰)', '原始数据(中)', '原始数据(北腰)', '原始数据(北)'];
-  // 每个模块独立成块
+    '原始数据(南)', '原始数据(南腰)', '原始数据(中)', '原始数据(北腰)', '原始数据(北)',
+    '测量差值(南)', '测量差值(南腰)', '测量差值(中)', '测量差值(北腰)', '测量差值(北)'];
   sessions.forEach((s, i) => {
     lines.push('模块,# ' + (i + 1) + ',保存时间,' + (s.timestamp || '') + ',水准点,' + (s.benchmarkName || '—') + ',桩号数,' + (s.rows ? s.rows.length : 0));
     lines.push('水准点高程(m),' + (s.benchmarkElev !== undefined && s.benchmarkElev !== '' ? s.benchmarkElev : '') +
       ',后视读数(m),' + (s.backsight !== undefined ? s.backsight : '') +
       ',视线高(m),' + (s.los !== undefined && s.los !== '' ? s.los : ''));
     lines.push('');
+    // 表头分组标注（测量高程 / 原始数据 / 测量差值 三块）
+    lines.push(',,【测量高程】,,,（南/南腰/中/北腰/北）,,【原始数据】,,,（南/南腰/中/北腰/北）,,【测量差值】,,,（南/南腰/中/北腰/北）');
     lines.push(colHeader.join(','));
-    s.rows.forEach(r => {
+    (s.rows || []).forEach(r => {
       const me = r.measureElev || [], md = r.measureDiff || [], od = r.originalData || [];
       const row = [r.station, r.designElev,
         ...me.map(v => v !== null ? v.toFixed(4) : ''),
-        ...md.map(v => v !== null ? v.toFixed(3) : ''),
-        ...od.map(v => v !== null ? v.toFixed(4) : '')];
+        ...od.map(v => v !== null ? v.toFixed(4) : ''),
+        ...md.map(v => v !== null ? v.toFixed(3) : '')];
       lines.push(row.map(csvCell).join(','));
     });
     lines.push(''); // 模块间空行
