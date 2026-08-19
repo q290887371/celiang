@@ -140,7 +140,13 @@ function idbSet(key, val) {
 async function initDB() {
   try {
     if (typeof initSqlJs !== 'function') throw new Error('sql.js 未加载');
-    SQL = await initSqlJs({ locateFile: f => 'lib/' + f });
+    // 部分运行环境（如沙箱预览 iframe）fetch wasm 会挂起不返回，
+    // 加超时强制回退 localStorage，避免启动卡在"初始化数据库"。
+    const SQL_ = await Promise.race([
+      initSqlJs({ locateFile: f => 'lib/' + f }),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('sql.js 加载超时')), 4000))
+    ]);
+    SQL = SQL_;
     const bytes = await idbGet('survey_db_v1');
     if (bytes && bytes.byteLength) db = new SQL.Database(new Uint8Array(bytes));
     else { db = new SQL.Database(); db.run('CREATE TABLE IF NOT EXISTS kv(key TEXT PRIMARY KEY, value TEXT)'); }
