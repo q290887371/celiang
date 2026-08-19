@@ -12,16 +12,14 @@ function defaultState() {
     project: {
       name: '兴运道东段沥青混凝土路面测量',
       layers: [
-        { key: 'ac_fine',   name: '细粒式沥青混凝土上面层', thickness: 0.04 },
-        { key: 'ac_mid',    name: '中粒式沥青混凝土中面层', thickness: 0.06 },
-        { key: 'ac_coarse', name: '粗粒式沥青混凝土下面层', thickness: 0.08 },
-        { key: 'cs_upper',  name: '水泥稳定粒料上基层', thickness: 0.18 },
-        { key: 'cs_lower',  name: '水泥稳定粒料下基层', thickness: 0.20 },
-        { key: 'lime_sub',  name: '石灰稳定土底基层', thickness: 0.20 }
+        { key: 'ac_fine',  name: '细粒式改性沥青混凝土上面层', thickness: 0.04 },
+        { key: 'ac_mid',   name: '中粒式沥青混凝土中面层',     thickness: 0.06 },
+        { key: 'cs_upper', name: '水泥稳定碎石上基层',         thickness: 0.18 },
+        { key: 'cs_lower', name: '水泥稳定碎石下基层',         thickness: 0.18 },
+        { key: 'cs_sub',   name: '水泥稳定碎石底基层',         thickness: 0.18 }
       ],
       subItem: 'ac_fine',
-      layerTotalThickness: 0.76,
-      looseThickness: 0.05,
+      looseThickness: 0.0,
       crossSlope: 0.02,
       offsets: [0, 5, 10],
       tolerance: 5,
@@ -78,18 +76,20 @@ function elevationAtStation(stationM) {
   return NaN;
 }
 
-// 测量目标高程（摊铺前应达到的设计高程）: D - 总厚 + 各层和(仅生效层) + 虚铺 - 偏距×横坡
+// 测量目标高程（摊铺前应达到的设计高程）= 设计标高 − 不生效层厚之和 + 虚铺 − 偏距×横坡
+// 不生效层厚之和 = 全部层厚 − 生效层厚，等价于旧公式 (总厚 − 生效层厚)，但不再依赖手填的"总厚度"字段
 function computeMeasureInputs(designElev) {
   const D = parseFloat(designElev);
-  const total = parseFloat(state.project.layerTotalThickness);
   const act = activeLayerKeys();
+  const allLayers = totalLayerThickness();
   const sumLayers = state.project.layers.reduce((s, l) => s + (act.has(l.key) ? (parseFloat(l.thickness) || 0) : 0), 0);
+  const inactive = allLayers - sumLayers; // 不生效层厚之和
   const loose = parseFloat(state.project.looseThickness);
   const cs = parseFloat(state.project.crossSlope);
   const o = state.project.offsets;
   const offsetMap = [o[2], o[1], o[0], o[1], o[2]]; // 南/南腰/中/北腰/北
-  if (isNaN(D) || isNaN(total) || isNaN(loose) || isNaN(cs)) return [null, null, null, null, null];
-  return offsetMap.map(d => D - total + sumLayers + loose - d * cs);
+  if (isNaN(D) || isNaN(loose) || isNaN(cs)) return [null, null, null, null, null];
+  return offsetMap.map(d => D - inactive + loose - d * cs);
 }
 
 // 测量高程（实测） = 视线高 − 原始数据
@@ -237,7 +237,8 @@ function bindProjectInputs() {
   populateSubItem();
   document.getElementById('looseThickness').value = state.project.looseThickness;
   document.getElementById('crossSlope').value = state.project.crossSlope;
-  document.getElementById('layerTotal').value = state.project.layerTotalThickness;
+  const ltEl = document.getElementById('layerTotal');
+  if (ltEl) ltEl.value = totalLayerThickness().toFixed(2);
   document.getElementById('off1').value = state.project.offsets[0];
   document.getElementById('off2').value = state.project.offsets[1];
   document.getElementById('off3').value = state.project.offsets[2];
@@ -246,7 +247,6 @@ function bindProjectInputs() {
 function onProjectChange() {
   state.project.looseThickness = parseFloat(document.getElementById('looseThickness').value) || 0;
   state.project.crossSlope = parseFloat(document.getElementById('crossSlope').value) || 0;
-  state.project.layerTotalThickness = parseFloat(document.getElementById('layerTotal').value) || 0;
   state.project.offsets = [
     parseFloat(document.getElementById('off1').value) || 0,
     parseFloat(document.getElementById('off2').value) || 0,
@@ -264,6 +264,10 @@ function activeLayerKeys() {
   const idx = cps.findIndex(l => l.key === sel);
   if (idx < 0) return new Set(cps.map(l => l.key));
   return new Set(cps.filter((l, i) => i >= idx).map(l => l.key)); // 选中层 + 以下
+}
+// 全部结构层厚度之和（替代手填的"总厚度"字段，避免与分层厚度不一致）
+function totalLayerThickness() {
+  return (state.project.layers || []).reduce((s, l) => s + (parseFloat(l.thickness) || 0), 0);
 }
 // 用结构层名称填充分项工程下拉框（顺序与路面结构层卡片一致）
 function populateSubItem() {
@@ -291,6 +295,8 @@ function renderLayerList() {
       <span class="layer-state ${act.has(l.key) ? 'on' : 'off'}">${act.has(l.key) ? '生效' : '不生效'}</span>
       <button class="btn btn-sm btn-danger del" onclick="deleteLayer('${l.key}')">删</button>
     </div>`).join('');
+  const ltEl = document.getElementById('layerTotal');
+  if (ltEl) ltEl.value = totalLayerThickness().toFixed(2);
 }
 function addLayer() {
   state.project.layers.push({ key: 'L' + Date.now(), name: '新结构层', thickness: 0.05 });
