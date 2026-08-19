@@ -10,9 +10,9 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
   <link rel="apple-touch-icon" href="assets/icon.svg">
-  <link rel="stylesheet" href="styles.css?v=20260819f">
-  <script src="lib/sql-wasm.js?v=20260819f"></script>
-  <script src="lib/xlsx-export.js?v=20260819f"></script>
+  <link rel="stylesheet" href="styles.css?v=20260819g">
+  <script src="lib/sql-wasm.js?v=20260819g"></script>
+  <script src="lib/xlsx-export.js?v=20260819g"></script>
 </head>
 <body>
 
@@ -97,8 +97,8 @@
       </div>
 
       <div class="card">
-        <div class="card-title">设计标高控制点</div>
-        <div class="section-label">桩号格式 K0+600（加号分隔）。下方每点自动给出各偏距处设计高程 = 设计标高 − 偏距×横坡度。</div>
+        <div class="card-title">设计标高</div>
+        <div class="section-label">桩号格式 K0+600（加号分隔）。下方每点自动给出各偏距处设计高程 = 设计标高 − 偏距×横坡度；水准测量记录输入「桩号+方位」时自动取对应偏距（中=0m、腰=5m、南北=10m）。</div>
         <div id="controlList"></div>
         <div class="btn-row">
           <button class="btn btn-sm" onclick="addControlPoint()">+ 添加控制点</button>
@@ -250,6 +250,6 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="app.js?v=20260819f"></script>
+  <script src="app.js?v=20260819g"></script>
 </body>
 </html>
