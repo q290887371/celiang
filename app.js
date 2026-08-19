@@ -37,6 +37,7 @@ function defaultState() {
     inputMode: 'normal',
     showMeasureElev: true,
     showMeasureDiff: true,
+    showMeasureOrig: false,
     measureSessions: [],
     showSessionElev: true,
     showSessionDiff: true,
@@ -494,27 +495,30 @@ function updateLineOfSight() {
 }
 function renderMeasureHead() {
   const head = document.getElementById('measureHead');
-  const showE = state.showMeasureElev, showD = state.showMeasureDiff;
+  const showE = state.showMeasureElev, showD = state.showMeasureDiff, showO = state.showMeasureOrig;
   const pts = '<th>南</th><th>南腰</th><th>中</th><th>北腰</th><th>北</th>';
   const gE = showE ? '<th colspan="5" style="background:rgba(76,175,80,0.12)">测量高程</th>' : '';
   const gD = showD ? '<th colspan="5" style="background:rgba(33,150,243,0.12)">测量差值</th>' : '';
+  const gO = showO ? '<th colspan="5" style="background:rgba(255,152,0,0.10)">原始数据</th>' : '';
   head.innerHTML = `<tr>
     <th rowspan="2" style="width:40px">序</th>
     <th rowspan="2" style="width:90px">桩号</th>
     <th rowspan="2" style="width:90px">设计标高(m)</th>
-    ${gE}${gD}
+    ${gE}${gD}${gO}
     <th rowspan="2" style="width:60px">操作</th>
-  </tr><tr>${showE ? pts : ''}${showD ? pts : ''}</tr>`;
+  </tr><tr>${showE ? pts : ''}${showD ? pts : ''}${showO ? pts : ''}</tr>`;
 }
 function toggleMeasureCol(which, on) {
-  if (which === 'elev') state.showMeasureElev = on; else state.showMeasureDiff = on;
+  if (which === 'elev') state.showMeasureElev = on;
+  else if (which === 'diff') state.showMeasureDiff = on;
+  else state.showMeasureOrig = on;
   renderMeasureHead(); renderMeasures(); saveAll();
 }
 function renderMeasures() {
   renderMeasureHead();
   const body = document.getElementById('measureBody');
   const rows = state.measures.filter(m => (m.originalData || []).some(d => d !== null));
-  const colCount = 3 + (state.showMeasureElev ? 5 : 0) + (state.showMeasureDiff ? 5 : 0) + 1;
+  const colCount = 3 + (state.showMeasureElev ? 5 : 0) + (state.showMeasureDiff ? 5 : 0) + (state.showMeasureOrig ? 5 : 0) + 1;
   if (!rows.length) {
     body.innerHTML = `<tr><td colspan="${colCount}" class="empty-state"><p>尚无已录入原始数据的桩号；请先在「原始数据」页录入 5 点读数</p></td></tr>`;
     return;
@@ -532,11 +536,13 @@ function renderMeasures() {
       const cls = Math.abs(v) > (state.project.tolerance || 0) / 1000 ? (v > 0 ? 'dev-positive' : 'dev-negative') : 'dev-zero';
       return `<td class="calculated diff ${cls}">${v.toFixed(3)}</td>`;
     }).join('') : '';
+    const odCells = state.showMeasureOrig ? (m.originalData || [null, null, null, null, null]).map(v =>
+      `<td><input class="calculated" value="${v !== null ? v.toFixed(4) : ''}" readonly></td>`).join('') : '';
     return `<tr>
       <td>${i + 1}</td>
       <td class="station-cell">${m.station || ''}</td>
       <td>${m.designElev || ''}</td>
-      ${meCells}${mdCells}
+      ${meCells}${mdCells}${odCells}
       <td><button class="btn btn-sm btn-danger" onclick="deleteMeasureRow('${m._id}')">删</button></td>
     </tr>`;
   }).join('');
