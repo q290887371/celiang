@@ -273,7 +273,7 @@ function onProjectChange() {
     lower: parseFloat(document.getElementById('tolLower').value) || -5,
     warn: parseFloat(document.getElementById('tolWarn').value) || 3
   };
-  saveAll(); renderMeasures(); renderControlList();
+  saveAll(); renderMeasures(); renderControlList(); renderLevelRows();
 }
 
 // 分项工程：选到某层时，该层及其以下（朝路床方向，数组靠后）各层生效，其上各层不生效
@@ -364,7 +364,7 @@ function renderControlList() {
     <div class="cp-row">
       <div class="cp-main">
         <input type="text" value="${c.station}" onchange="state.project.controlPoints[${i}].station=this.value;saveAll();renderMeasures()">
-        <input type="number" step="0.001" value="${c.elevation}" onchange="state.project.controlPoints[${i}].elevation=parseFloat(this.value)||0;saveAll();renderMeasures();renderControlList()">
+        <input type="number" step="0.001" value="${c.elevation}" onchange="state.project.controlPoints[${i}].elevation=parseFloat(this.value)||0;saveAll();renderMeasures();renderControlList();renderLevelRows()">
         <button class="btn btn-sm btn-danger del" onclick="deleteControlPoint(${i})">删</button>
       </div>
       <div class="cp-offsets">
@@ -523,7 +523,7 @@ function addLevelRow() {
     pt: '', bs: null, mid: null, fs: null,
     los: null, losManual: false,
     elev: '', elevManual: false,
-    de: ''
+    de: '', deAuto: false
   });
   saveAll(); renderLevelRows();
 }
@@ -557,6 +557,14 @@ function levelDev(r) {
 function recomputeLevels() {
   let los = null; // 当前视线高（上一站）
   (state.levelRows || []).forEach(r => {
+    // 设计高程：若为自动派生（来自 测点桩号+方位），随控制点/横坡/偏距变化实时重算
+    if (r.deAuto) {
+      const sm = stationInText(r.pt);
+      if (!isNaN(sm)) {
+        const d = designElevForPoint(r.pt, sm);
+        if (!isNaN(d)) r.de = +d.toFixed(4);
+      }
+    }
     const fs = parseFloat(r.fs), mid = parseFloat(r.mid), bs = parseFloat(r.bs);
     const haveLos = los !== null && !isNaN(los);
     // ① 高程：非手工时按公式
@@ -587,6 +595,8 @@ function updateLevelCells() {
     if (lEl) lEl.value = (r.los != null && r.los !== '') ? r.los : '';
     const eEl = document.getElementById('lv-elev-' + r._id);
     if (eEl) eEl.value = (r.elev !== '' && r.elev != null) ? r.elev : '';
+    const deEl = document.getElementById('lv-de-' + r._id);
+    if (deEl) deEl.value = (r.de !== '' && r.de != null) ? r.de : '';
     const dEl = document.getElementById('lv-dev-' + r._id);
     if (dEl) {
       dEl.textContent = r.dev != null ? r.dev : '';
@@ -599,15 +609,10 @@ function onLevelInput(id, field, val) {
   if (!r) return;
   if (field === 'pt') {
     r.pt = val;
-    const sm = stationInText(val);
-    if (!isNaN(sm)) {
-      const de = designElevForPoint(val, sm);
-      if (!isNaN(de)) {
-        r.de = de.toFixed(4);
-        const deEl = document.getElementById('lv-de-' + id);
-        if (deEl) deEl.value = r.de;
-      }
-    }
+    r.deAuto = true; // 由桩号+方位自动派生设计高程（控制点变化会联动）
+  } else if (field === 'de') {
+    r.de = (val === '' || val === null) ? '' : parseFloat(val);
+    r.deAuto = false; // 手工指定，之后不再自动覆盖
   } else if (field === 'elev') {
     r.elev = (val === '' || val === null) ? '' : parseFloat(val);
     r.elevManual = true;
