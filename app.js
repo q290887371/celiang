@@ -657,20 +657,38 @@ function toggleSessionCol(which, on) {
 function exportSessionsCSV() {
   const sessions = state.measureSessions || [];
   if (!sessions.length) { toast('暂无模块可导出'); return; }
-  const header = ['模块号', '保存时间', '水准点', '水准点高程', '后视读数', '视线高', '桩号', '设计标高',
-    '测量高程_南', '测量高程_南腰', '测量高程_中', '测量高程_北腰', '测量高程_北',
-    '测量差值_南', '测量差值_南腰', '测量差值_中', '测量差值_北腰', '测量差值_北',
-    '原始_南', '原始_南腰', '原始_中', '原始_北腰', '原始_北'];
-  const lines = [header.join(',')];
+  const subLayer = state.project.layers.find(l => l.key === state.project.subItem);
+  const subName = subLayer ? subLayer.name : (state.project.subItem || '—');
+  const now = new Date().toLocaleString('zh-CN', { hour12: false });
+  const lines = [];
+  // 顶部工程信息块
+  lines.push('路面测量工作台 · 测量模块汇总');
+  lines.push('工程名称,' + (state.project.name || ''));
+  lines.push('分项工程,' + subName);
+  lines.push('导出时间,' + now);
+  lines.push(''); // 空行分隔
+  // 数据列头（易懂中文）
+  const colHeader = ['桩号', '设计标高(m)',
+    '测量高程(南)', '测量高程(南腰)', '测量高程(中)', '测量高程(北腰)', '测量高程(北)',
+    '测量差值(南)', '测量差值(南腰)', '测量差值(中)', '测量差值(北腰)', '测量差值(北)',
+    '原始数据(南)', '原始数据(南腰)', '原始数据(中)', '原始数据(北腰)', '原始数据(北)'];
+  // 每个模块独立成块
   sessions.forEach((s, i) => {
+    lines.push('模块,# ' + (i + 1) + ',保存时间,' + (s.timestamp || '') + ',水准点,' + (s.benchmarkName || '—') + ',桩号数,' + (s.rows ? s.rows.length : 0));
+    lines.push('水准点高程(m),' + (s.benchmarkElev !== undefined && s.benchmarkElev !== '' ? s.benchmarkElev : '') +
+      ',后视读数(m),' + (s.backsight !== undefined ? s.backsight : '') +
+      ',视线高(m),' + (s.los !== undefined && s.los !== '' ? s.los : ''));
+    lines.push('');
+    lines.push(colHeader.join(','));
     s.rows.forEach(r => {
       const me = r.measureElev || [], md = r.measureDiff || [], od = r.originalData || [];
-      const row = [i + 1, s.timestamp, s.benchmarkName, s.benchmarkElev, s.backsight, s.los, r.station, r.designElev,
+      const row = [r.station, r.designElev,
         ...me.map(v => v !== null ? v.toFixed(4) : ''),
         ...md.map(v => v !== null ? v.toFixed(3) : ''),
         ...od.map(v => v !== null ? v.toFixed(4) : '')];
       lines.push(row.map(csvCell).join(','));
     });
+    lines.push(''); // 模块间空行
   });
   const csv = '﻿' + lines.join('\r\n');
   downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), '测量模块汇总.csv');
