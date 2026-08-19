@@ -528,8 +528,22 @@ function addLevelRow() {
   saveAll(); renderLevelRows();
 }
 function deleteLevelRow(id) {
-  state.levelRows = state.levelRows.filter(r => r._id !== id);
-  saveAll(); renderLevelRows();
+  const r = state.levelRows.find(x => x._id === id);
+  state.levelRows = state.levelRows.filter(x => x._id !== id);
+  if (r) clearLevelOrigSync(r); // 同步清空原始数据表对应桩号+方位
+  renderLevelRows(); renderOriginalData(); saveAll();
+}
+// 删除水准测量记录行时，清空原始数据录入表对应桩号+方位的读数；若该桩号行已无任何读数则整行移除
+function clearLevelOrigSync(r) {
+  const sm = stationInText(r.pt);
+  if (isNaN(sm)) return;
+  const idx = azimuthIndex(r.pt);
+  const i = state.measures.findIndex(m => parseStation(m.station) === sm);
+  if (i < 0) return;
+  const row = state.measures[i];
+  if (row.originalData) row.originalData[idx] = null;
+  const hasData = (row.originalData || []).some(v => v !== null && v !== '');
+  if (!hasData) state.measures.splice(i, 1);
 }
 let _lvArmed = false, _lvTimer = null;
 function clearAllLevels(btn) {
