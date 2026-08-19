@@ -527,6 +527,42 @@ function addLevelRow() {
   });
   saveAll(); renderLevelRows();
 }
+function openLevelModal() {
+  ['lm-pt', 'lm-bs', 'lm-mid', 'lm-fs', 'lm-los', 'lm-elev'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('levelModal').style.display = 'flex';
+  const pt = document.getElementById('lm-pt'); if (pt) pt.focus();
+}
+function closeLevelModal() {
+  const m = document.getElementById('levelModal');
+  if (m) m.style.display = 'none';
+}
+function _lmNum(id) {
+  const s = (document.getElementById(id) || {}).value || '';
+  const t = String(s).trim();
+  return (t === '' || isNaN(parseFloat(t))) ? null : parseFloat(t);
+}
+function saveLevelModal() {
+  const pt = String((document.getElementById('lm-pt') || {}).value || '').trim();
+  const bs = _lmNum('lm-bs'), mid = _lmNum('lm-mid'), fs = _lmNum('lm-fs'), los = _lmNum('lm-los');
+  const elevStr = String((document.getElementById('lm-elev') || {}).value || '').trim();
+  const row = {
+    _id: 'lv' + Date.now().toString(36) + Math.random().toString(36).slice(2),
+    pt: pt, bs: bs, mid: mid, fs: fs,
+    los: los, losManual: los !== null,
+    elev: (elevStr === '' || isNaN(parseFloat(elevStr))) ? elevStr : parseFloat(elevStr),
+    elevManual: elevStr !== '',
+    de: '', deAuto: false
+  };
+  state.levelRows.push(row);
+  recomputeLevels();
+  renderLevelRows();
+  if (mid !== null && mid !== '' && pt && !isNaN(stationInText(pt))) syncLevelToOrigData(row);
+  saveAll();
+  closeLevelModal();
+  toast('已记录一行');
+}
 function deleteLevelRow(id) {
   const r = state.levelRows.find(x => x._id === id);
   state.levelRows = state.levelRows.filter(x => x._id !== id);

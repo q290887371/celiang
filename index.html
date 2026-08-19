@@ -10,9 +10,9 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
   <link rel="apple-touch-icon" href="assets/icon.svg">
-  <link rel="stylesheet" href="styles.css?v=20260819r">
-  <script src="lib/sql-wasm.js?v=20260819r"></script>
-  <script src="lib/xlsx-export.js?v=20260819r"></script>
+  <link rel="stylesheet" href="styles.css?v=20260819s">
+  <script src="lib/sql-wasm.js?v=20260819s"></script>
+  <script src="lib/xlsx-export.js?v=20260819s"></script>
 </head>
 <body>
 
@@ -163,7 +163,8 @@
           </table>
         </div>
         <div class="btn-row">
-          <button class="btn btn-sm btn-primary" onclick="addLevelRow()">+ 添加测量行</button>
+          <button class="btn btn-sm btn-primary" onclick="openLevelModal()">＋ 弹窗录入</button>
+          <button class="btn btn-sm" onclick="addLevelRow()">+ 表格行</button>
           <button class="btn btn-sm btn-danger" id="lvDelAllBtn" onclick="clearAllLevels(this)">全部删除</button>
         </div>
       </div>
@@ -248,8 +249,26 @@
     </button>
   </nav>
 
+  <div class="modal-mask" id="levelModal" style="display:none">
+    <div class="modal-box">
+      <div class="modal-title">水准测量记录 · 录入</div>
+      <div class="modal-fields">
+        <label>测点</label><input id="lm-pt" placeholder="如 K0+800 南腰">
+        <label>后视</label><input id="lm-bs" type="number" step="0.001">
+        <label>中间点</label><input id="lm-mid" type="number" step="0.001">
+        <label>前视</label><input id="lm-fs" type="number" step="0.001">
+        <label>视线高</label><input id="lm-los" type="number" step="0.001">
+        <label>高程</label><input id="lm-elev" type="number" step="0.001">
+      </div>
+      <div class="modal-btns">
+        <button class="btn btn-sm" onclick="closeLevelModal()">取消</button>
+        <button class="btn btn-sm btn-primary" onclick="saveLevelModal()">记录</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
 
-  <script src="app.js?v=20260819r"></script>
+  <script src="app.js?v=20260819s"></script>
 </body>
 </html>
