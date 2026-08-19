@@ -503,6 +503,20 @@ function stationInText(s) {
   const m = String(s || '').toUpperCase().match(/K\d+\+\d+/);
   return m ? parseStation(m[0]) : NaN;
 }
+// 按方位取该桩号设计标高控制点在对应偏距处的设计高程：
+//   中→偏距0m(offsets[0])  南腰/北腰→偏距5m(offsets[1])  南/北→偏距10m(offsets[2])
+// 设计高程 = 中桩设计标高 − 偏距×横坡
+function designElevForPoint(pt, sm) {
+  const base = elevationAtStation(sm);
+  if (isNaN(base)) return NaN;
+  const cs = parseFloat(state.project.crossSlope) || 0;
+  const o = state.project.offsets || [0, 5, 10];
+  let off;
+  if (/腰/.test(String(pt || ''))) off = o[1];
+  else if (/[南北]/.test(String(pt || ''))) off = o[2];
+  else off = o[0];
+  return base - off * cs;
+}
 function addLevelRow() {
   state.levelRows.push({
     _id: 'lv' + Date.now().toString(36) + Math.random().toString(36).slice(2),
@@ -587,7 +601,7 @@ function onLevelInput(id, field, val) {
     r.pt = val;
     const sm = stationInText(val);
     if (!isNaN(sm)) {
-      const de = elevationAtStation(sm);
+      const de = designElevForPoint(val, sm);
       if (!isNaN(de)) {
         r.de = de.toFixed(4);
         const deEl = document.getElementById('lv-de-' + id);
