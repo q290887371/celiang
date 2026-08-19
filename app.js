@@ -253,7 +253,7 @@ function onProjectChange() {
     parseFloat(document.getElementById('off3').value) || 0
   ];
   state.project.tolerance = parseFloat(document.getElementById('tolerance').value) || 0;
-  saveAll(); renderMeasures();
+  saveAll(); renderMeasures(); renderControlList();
 }
 
 // 分项工程：选到某层时，该层及其以下（朝路床方向，数组靠后）各层生效，其上各层不生效
@@ -321,12 +321,27 @@ function deleteBenchmark(i) {
 
 function renderControlList() {
   const box = document.getElementById('controlList');
-  box.innerHTML = state.project.controlPoints.map((c, i) => `
-    <div class="layer-item">
-      <input type="text" value="${c.station}" onchange="state.project.controlPoints[${i}].station=this.value;saveAll();renderMeasures()">
-      <input type="number" step="0.001" value="${c.elevation}" onchange="state.project.controlPoints[${i}].elevation=parseFloat(this.value)||0;saveAll();renderMeasures()">
-      <button class="btn btn-sm btn-danger del" onclick="deleteControlPoint(${i})">删</button>
-    </div>`).join('');
+  const o = state.project.offsets || [0, 5, 10];
+  const cs = parseFloat(state.project.crossSlope) || 0;
+  box.innerHTML = state.project.controlPoints.map((c, i) => {
+    const e = parseFloat(c.elevation) || 0;
+    const e0 = e - o[0] * cs;
+    const e5 = e - o[1] * cs;
+    const e10 = e - o[2] * cs;
+    return `
+    <div class="cp-row">
+      <div class="cp-main">
+        <input type="text" value="${c.station}" onchange="state.project.controlPoints[${i}].station=this.value;saveAll();renderMeasures()">
+        <input type="number" step="0.001" value="${c.elevation}" onchange="state.project.controlPoints[${i}].elevation=parseFloat(this.value)||0;saveAll();renderMeasures();renderControlList()">
+        <button class="btn btn-sm btn-danger del" onclick="deleteControlPoint(${i})">删</button>
+      </div>
+      <div class="cp-offsets">
+        <span class="cp-off"><i>偏距${o[0]}m</i><b>${e0.toFixed(3)}</b></span>
+        <span class="cp-off"><i>偏距${o[1]}m</i><b>${e5.toFixed(3)}</b></span>
+        <span class="cp-off"><i>偏距${o[2]}m</i><b>${e10.toFixed(3)}</b></span>
+      </div>
+    </div>`;
+  }).join('');
 }
 function addControlPoint() {
   state.project.controlPoints.push({ station: 'K0+000', elevation: 0 });
@@ -378,7 +393,7 @@ function generateStations() {
   for (let m = min; m <= max; m += step) {
     const st = formatStation(m);
     if (existing.has(st)) continue;
-    state.measures.push({ station: st, designElev: '', originalData: [null, null, null, null, null], isControl: false });
+    state.measures.push({ station: st, designElev: elevationAtStation(m).toFixed(4), originalData: [null, null, null, null, null], isControl: false });
     existing.add(st);
   }
   saveAll(); renderOriginalData(); renderMeasures();
@@ -390,6 +405,7 @@ function generateStations() {
    ============================================================ */
 function addMeasureRow(isControl) {
   state.measures.push({
+    _id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2),
     station: '', designElev: '',
     originalData: [null, null, null, null, null],
     isControl: !!isControl
@@ -403,16 +419,16 @@ function deleteMeasureRow(id) {
 function renderOriginalData() {
   const body = document.getElementById('origdataBody');
   if (!state.measures.length) {
-    body.innerHTML = '<tr><td colspan="7" class="empty-state"><p>暂无数据，点下方"添加测量行"</p></td></tr>';
+    body.innerHTML = '<tr><td colspan="8" class="empty-state"><p>暂无数据，点下方"添加测量行"</p></td></tr>';
     return;
   }
   body.innerHTML = state.measures.map(m => {
-    if (!m._id) m._id = 'm' + Math.random().toString(36).slice(2);
     const cells = (m.originalData || [null, null, null, null, null]).map((v, k) =>
       `<td><input type="number" step="0.001" value="${v !== null ? v : ''}" oninput="onOrigInput('${m._id}',${k},this.value)"></td>`
     ).join('');
     return `<tr class="${m.isControl ? 'row-control' : ''}">
       <td><input type="text" value="${m.station || ''}" placeholder="K0+600" oninput="onStationInput('${m._id}',this.value)" style="width:88px"></td>
+      <td class="de-cell" id="de-${m._id}">${m.designElev || ''}</td>
       ${cells}
       <td><button class="btn btn-sm btn-danger" onclick="deleteMeasureRow('${m._id}')">删</button></td>
     </tr>`;
@@ -430,6 +446,8 @@ function onStationInput(id, val) {
   m.station = val;
   const sm = parseStation(val);
   m.designElev = !isNaN(sm) ? elevationAtStation(sm).toFixed(4) : '';
+  const deCell = document.getElementById('de-' + id);
+  if (deCell) deCell.textContent = m.designElev || '';
   saveAll(); renderMeasures();
 }
 let _delArmed = false, _delTimer = null;

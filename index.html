@@ -92,7 +92,7 @@
 
       <div class="card">
         <div class="card-title">设计标高控制点</div>
-        <div class="section-label">桩号格式 K0+600（加号分隔）</div>
+        <div class="section-label">桩号格式 K0+600（加号分隔）。下方每点自动给出各偏距处设计高程 = 设计标高 − 偏距×横坡度。</div>
         <div id="controlList"></div>
         <div class="btn-row">
           <button class="btn btn-sm" onclick="addControlPoint()">+ 添加控制点</button>
@@ -122,7 +122,7 @@
           <table class="data-table" id="origdataTable">
             <thead>
               <tr>
-                <th>桩号</th><th>南</th><th>南腰</th><th>中</th><th>北腰</th><th>北</th><th>操作</th>
+                <th>桩号</th><th>设计标高</th><th>南</th><th>南腰</th><th>中</th><th>北腰</th><th>北</th><th>操作</th>
               </tr>
             </thead>
             <tbody id="origdataBody"></tbody>
