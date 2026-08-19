@@ -148,6 +148,27 @@
       </div>
 
       <div class="card">
+        <div class="card-title">
+          <span>水准测量记录</span>
+          <button class="btn btn-sm" onclick="exportLevelXLSX()">导出XLSX</button>
+        </div>
+        <div class="section-label">水准测量记录表：填 测点/后视/中间点/前视/视线高/设计高程；高程=视线高−读数（前视优先、其次中间点），偏差值(mm)=(高程−设计高程)×1000 自动计算。测点含桩号（如 K0+800中）自动匹配设计高程。</div>
+        <div class="table-wrapper table-scroll">
+          <table class="data-table" id="levelTable">
+            <thead>
+              <tr><th rowspan="2">测点</th><th colspan="3">水准尺读数</th><th rowspan="2">视线高</th><th rowspan="2">高程(m)</th><th rowspan="2">设计高程(m)</th><th rowspan="2">偏差值(mm)</th><th rowspan="2">操作</th></tr>
+              <tr><th>后视</th><th>中间点</th><th>前视</th></tr>
+            </thead>
+            <tbody id="levelBody"></tbody>
+          </table>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-sm btn-primary" onclick="addLevelRow()">+ 添加测量行</button>
+          <button class="btn btn-sm btn-danger" id="lvDelAllBtn" onclick="clearAllLevels(this)">全部删除</button>
+        </div>
+      </div>
+
+      <div class="card">
         <div class="card-title"><span>原始数据录入</span></div>
         <div class="section-label">每桩号 5 点读数：南 / 南腰 / 中 / 北腰 / 北（单位 m）。下方「测量录入」的 设计读数 / 测量高程 / 测量差值 将据此自动计算。</div>
         <div class="table-wrapper">

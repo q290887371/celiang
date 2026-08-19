@@ -34,6 +34,7 @@ function defaultState() {
     },
     measureSetup: { benchmark: 'BM1', backsight: 1.5, los: '' },
     measures: [],
+    levelRows: [],
     inputMode: 'normal',
     showMeasureElev: true,
     showMeasureDiff: true,
@@ -200,6 +201,7 @@ function loadAll() {
     if (!Array.isArray(state.project.benchmarks)) state.project.benchmarks = base.project.benchmarks;
     if (!Array.isArray(state.project.controlPoints)) state.project.controlPoints = base.project.controlPoints;
     if (!Array.isArray(state.measures)) state.measures = [];
+    if (!Array.isArray(state.levelRows)) state.levelRows = [];
     if (!Array.isArray(state.measureSessions)) state.measureSessions = [];
   } else {
     state = base;
@@ -491,6 +493,137 @@ function deleteAllMeasures(btn) {
   state.measures = [];
   saveAll(); renderOriginalData(); renderMeasures(); renderResults();
   toast('已清空全部测量行');
+}
+
+/* ============================================================
+   水准测量记录（水准测量记录表）
+   ============================================================ */
+// 从测点文本中提取桩号（如 K0+800中 / ZD1 / 左）
+function stationInText(s) {
+  const m = String(s || '').toUpperCase().match(/K\d+\+\d+/);
+  return m ? parseStation(m[0]) : NaN;
+}
+function addLevelRow() {
+  const los = state.measureSetup.los;
+  state.levelRows.push({
+    _id: 'lv' + Date.now().toString(36) + Math.random().toString(36).slice(2),
+    pt: '', bs: null, mid: null, fs: null,
+    los: (los !== '' && los != null) ? los : null,
+    de: ''
+  });
+  saveAll(); renderLevelRows();
+}
+function deleteLevelRow(id) {
+  state.levelRows = state.levelRows.filter(r => r._id !== id);
+  saveAll(); renderLevelRows();
+}
+let _lvArmed = false, _lvTimer = null;
+function clearAllLevels(btn) {
+  if (!_lvArmed) {
+    _lvArmed = true; btn.textContent = '确认清空？'; btn.classList.add('btn-armed');
+    _lvTimer = setTimeout(() => { _lvArmed = false; btn.textContent = '全部删除'; btn.classList.remove('btn-armed'); }, 3000);
+    return;
+  }
+  clearTimeout(_lvTimer); _lvArmed = false; btn.textContent = '全部删除'; btn.classList.remove('btn-armed');
+  state.levelRows = [];
+  saveAll(); renderLevelRows();
+  toast('已清空水准测量记录');
+}
+// 高程 = 视线高 − 读数（前视优先，其次中间点，无读数按0）；偏差值(mm) = (高程 − 设计高程) × 1000
+function levelRowCalc(r) {
+  const los = parseFloat(r.los);
+  const read = r.fs !== null && r.fs !== '' && !isNaN(parseFloat(r.fs))
+    ? parseFloat(r.fs) : (r.mid !== null && r.mid !== '' && !isNaN(parseFloat(r.mid)) ? parseFloat(r.mid) : NaN);
+  const elev = !isNaN(los) ? (los - (isNaN(read) ? 0 : read)) : NaN;
+  const de = parseFloat(r.de);
+  let dev = null;
+  if (!isNaN(elev) && !isNaN(de)) {
+    const mm = Math.round((elev - de) * 1000);
+    dev = (mm > 0 ? '+' + mm : String(mm));
+  }
+  return { elev: elev, dev: dev };
+}
+function onLevelInput(id, field, val) {
+  const r = state.levelRows.find(x => x._id === id);
+  if (!r) return;
+  if (field === 'pt') {
+    r.pt = val;
+    const sm = stationInText(val);
+    if (!isNaN(sm)) {
+      const de = elevationAtStation(sm);
+      if (!isNaN(de)) {
+        r.de = de.toFixed(4);
+        const deEl = document.getElementById('lv-de-' + id);
+        if (deEl) deEl.value = r.de;
+      }
+    }
+  } else {
+    r[field] = (val === '' || val === null) ? null : parseFloat(val);
+  }
+  const c = levelRowCalc(r);
+  const eEl = document.getElementById('lv-elev-' + id);
+  if (eEl) eEl.value = !isNaN(c.elev) ? c.elev.toFixed(3) : '';
+  const dEl = document.getElementById('lv-dev-' + id);
+  if (dEl) {
+    dEl.textContent = c.dev !== null ? c.dev : '';
+    dEl.className = 'lv-dev' + (c.dev !== null && c.dev !== '' && c.dev !== '0' ? (c.dev.startsWith('-') ? ' dev-negative' : ' dev-positive') : '');
+  }
+  saveAll();
+}
+function renderLevelRows() {
+  const body = document.getElementById('levelBody');
+  if (!body) return;
+  if (!state.levelRows.length) {
+    body.innerHTML = '<tr><td colspan="9" class="empty-state"><p>暂无记录，点下方「添加测量行」开始录入（自动带入当前视线高）</p></td></tr>';
+    return;
+  }
+  body.innerHTML = state.levelRows.map(r => {
+    const c = levelRowCalc(r);
+    const devCls = c.dev !== null && c.dev !== '' && c.dev !== '0' ? (c.dev.startsWith('-') ? 'dev-negative' : 'dev-positive') : '';
+    return `<tr>
+      <td><input type="text" value="${r.pt || ''}" placeholder="如 K0+800中" oninput="onLevelInput('${r._id}','pt',this.value)" style="width:96px"></td>
+      <td><input type="number" step="0.001" value="${r.bs != null ? r.bs : ''}" oninput="onLevelInput('${r._id}','bs',this.value)"></td>
+      <td><input type="number" step="0.001" value="${r.mid != null ? r.mid : ''}" oninput="onLevelInput('${r._id}','mid',this.value)"></td>
+      <td><input type="number" step="0.001" value="${r.fs != null ? r.fs : ''}" oninput="onLevelInput('${r._id}','fs',this.value)"></td>
+      <td><input type="number" step="0.001" value="${r.los != null && r.los !== '' ? r.los : ''}" oninput="onLevelInput('${r._id}','los',this.value)" title="视线高=水准点高程+后视读数"></td>
+      <td><input class="calculated" id="lv-elev-${r._id}" value="${!isNaN(c.elev) ? c.elev.toFixed(3) : ''}" readonly></td>
+      <td><input type="number" step="0.001" id="lv-de-${r._id}" value="${r.de || ''}" oninput="onLevelInput('${r._id}','de',this.value)" placeholder="自动匹配"></td>
+      <td class="lv-dev ${devCls}" id="lv-dev-${r._id}">${c.dev !== null ? c.dev : ''}</td>
+      <td><button class="btn btn-sm btn-danger" onclick="deleteLevelRow('${r._id}')">删</button></td>
+    </tr>`;
+  }).join('');
+}
+function exportLevelXLSX() {
+  const rows = state.levelRows || [];
+  if (!rows.length) { toast('暂无水准测量记录可导出'); return; }
+  if (typeof buildStyledXLSX === 'undefined') { toast('xlsx 导出库未加载，无法导出'); return; }
+  const cell = (v, s) => ({ v: v, s: s });
+  const _num = (v, d) => (v === null || v === undefined || v === '' || isNaN(Number(v))) ? null : +Number(v).toFixed(d);
+  const out = [];
+  out.push([cell('测点', 16), cell('水准尺读数', 16), null, null, cell('视线高', 16), cell('高程\n(m)', 16), cell('设计高程\n(m)', 16), cell('偏差值\n(mm)', 16)]);
+  out.push([null, cell('后视', 17), cell('中间点', 17), cell('前视', 17), null, null, null, null]);
+  rows.forEach(r => {
+    const c = levelRowCalc(r);
+    out.push([
+      cell(r.pt || '', 20),
+      _num(r.bs, 3) === null ? null : cell(_num(r.bs, 3), 19),
+      _num(r.mid, 3) === null ? null : cell(_num(r.mid, 3), 19),
+      _num(r.fs, 3) === null ? null : cell(_num(r.fs, 3), 19),
+      _num(r.los, 3) === null ? null : cell(_num(r.los, 3), 19),
+      !isNaN(c.elev) ? cell(+c.elev.toFixed(3), 19) : null,
+      _num(r.de, 3) === null ? null : cell(_num(r.de, 3), 19),
+      c.dev !== null ? cell(c.dev, 18) : null
+    ]);
+  });
+  const rowHeights = { 1: 28, 2: 18 };
+  for (let i = 3; i <= 2 + rows.length; i++) rowHeights[i] = 18;
+  const sheet = { name: '水准测量记录', rows: out,
+    merges: ['A1:A2', 'B1:D1', 'E1:E2', 'F1:F2', 'G1:G2', 'H1:H2'],
+    cols: [{ w: 12 }, { w: 10 }, { w: 10 }, { w: 10 }, { w: 11 }, { w: 10 }, { w: 11 }, { w: 11 }],
+    rowHeights: rowHeights };
+  const bytes = buildStyledXLSX([sheet]);
+  downloadBlob(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), '水准测量记录.xlsx');
+  toast('已导出 水准测量记录.xlsx');
 }
 
 /* ============================================================
@@ -840,7 +973,7 @@ function switchTab(tabId) {
   if (panel) panel.classList.add('active');
   const nav = document.querySelector(`.nav-item[data-tab="${tabId}"]`);
   if (nav) nav.classList.add('active');
-  if (tabId === 'measure') { populateBenchmarks(); updateLineOfSight(); renderOriginalData(); renderMeasures(); }
+  if (tabId === 'measure') { populateBenchmarks(); updateLineOfSight(); renderLevelRows(); renderOriginalData(); renderMeasures(); }
   if (tabId === 'origdata') renderQuality();
   if (tabId === 'result') renderResults();
 }
@@ -862,7 +995,7 @@ function bindAll() {
 }
 function renderAll() {
   renderLayerList(); renderBenchmarkList(); renderControlList();
-  renderOriginalData(); renderMeasures(); renderResults(); renderQuality();
+  renderLevelRows(); renderOriginalData(); renderMeasures(); renderResults(); renderQuality();
 }
 
 /* ============================================================

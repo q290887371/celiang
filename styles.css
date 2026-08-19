@@ -227,6 +227,9 @@ table.data-table .row-control td { background: rgba(240,160,32,0.08); }
 .chk-inline { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer; user-select: none; }
 .chk-inline input { width: auto; min-height: auto; }
 
+/* ===== 水准测量记录：偏差值(mm) ===== */
+.lv-dev { font-weight: 700; min-width: 72px; font-variant-numeric: tabular-nums; }
+
 /* ===== 会话模块 ===== */
 .session-module { border-left: 4px solid var(--success); }
 .session-meta { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-bottom: 12px; font-size: 13px; color: var(--text-primary); }
