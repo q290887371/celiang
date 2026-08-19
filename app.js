@@ -270,6 +270,12 @@ function activeLayerKeys() {
 function totalLayerThickness() {
   return (state.project.layers || []).reduce((s, l) => s + (parseFloat(l.thickness) || 0), 0);
 }
+// 刷新"结构层总厚(m)·自动"显示：只改 layerTotal 这一个元素，
+// 不整表重渲染，避免丢失正在输入的结构层厚度焦点
+function updateLayerTotal() {
+  const ltEl = document.getElementById('layerTotal');
+  if (ltEl) ltEl.value = totalLayerThickness().toFixed(2);
+}
 // 用结构层名称填充分项工程下拉框（顺序与路面结构层卡片一致）
 function populateSubItem() {
   const sel = document.getElementById('subItem');
@@ -292,7 +298,7 @@ function renderLayerList() {
   box.innerHTML = state.project.layers.map((l, i) => `
     <div class="layer-item ${act.has(l.key) ? 'is-active' : 'is-inactive'}">
       <input type="text" value="${l.name}" onchange="state.project.layers[${i}].name=this.value;saveAll();populateSubItem();renderLayerList()">
-      <input type="number" step="0.01" value="${l.thickness}" onchange="state.project.layers[${i}].thickness=parseFloat(this.value)||0;saveAll();renderMeasures()">
+      <input type="number" step="0.01" value="${l.thickness}" oninput="state.project.layers[${i}].thickness=parseFloat(this.value)||0;updateLayerTotal();saveAll();renderMeasures()">
       <span class="layer-state ${act.has(l.key) ? 'on' : 'off'}">${act.has(l.key) ? '生效' : '不生效'}</span>
       <button class="btn btn-sm btn-danger del" onclick="deleteLayer('${l.key}')">删</button>
     </div>`).join('');
