@@ -641,7 +641,7 @@ function renderLevelRows() {
   body.innerHTML = state.levelRows.map(r => {
     const devCls = r.dev > 0 ? 'dev-positive' : (r.dev < 0 ? 'dev-negative' : '');
     return `<tr>
-      <td><input type="text" value="${r.pt || ''}" placeholder="桩号+方位" oninput="onLevelInput('${r._id}','pt',this.value)" style="min-width:132px; white-space:nowrap"></td>
+      <td><input type="text" value="${r.pt || ''}" placeholder="桩号+方位" oninput="onLevelInput('${r._id}','pt',this.value)" style="min-width:88px; white-space:nowrap"></td>
       <td><input type="number" step="0.001" value="${r.bs != null ? r.bs : ''}" oninput="onLevelInput('${r._id}','bs',this.value)"></td>
       <td><input type="number" step="0.001" value="${r.mid != null ? r.mid : ''}" oninput="onLevelInput('${r._id}','mid',this.value)"></td>
       <td><input type="number" step="0.001" value="${r.fs != null ? r.fs : ''}" oninput="onLevelInput('${r._id}','fs',this.value)"></td>
