@@ -10,9 +10,9 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
   <link rel="apple-touch-icon" href="assets/icon.svg">
-  <link rel="stylesheet" href="styles.css?v=20260819h">
-  <script src="lib/sql-wasm.js?v=20260819h"></script>
-  <script src="lib/xlsx-export.js?v=20260819h"></script>
+  <link rel="stylesheet" href="styles.css?v=20260819i">
+  <script src="lib/sql-wasm.js?v=20260819i"></script>
+  <script src="lib/xlsx-export.js?v=20260819i"></script>
 </head>
 <body>
 
@@ -152,11 +152,11 @@
           <span>水准测量记录</span>
           <button class="btn btn-sm" onclick="exportLevelXLSX()">导出XLSX</button>
         </div>
-        <div class="section-label">计算规则：视线高=本行高程+本行后视；本行高程=上一行视线高−本行中间点(或前视)；偏差值(mm)=(高程−设计高程)×1000 自动算。首行输入已知点高程+后视即得视线高。测点带方位自动匹配对应偏距设计高程：中=偏距0m，南腰/北腰=偏距5m，南/北=偏距10m。</div>
+        <div class="section-label">计算规则：视线高=本行高程+本行后视；本行高程=上一行视线高−本行中间点(或前视)；偏差值(m)=高程−设计高程自动算。首行输入已知点高程+后视即得视线高。测点带方位自动匹配对应偏距设计高程：中=偏距0m，南腰/北腰=偏距5m，南/北=偏距10m。</div>
         <div class="table-wrapper table-scroll">
           <table class="data-table" id="levelTable">
             <thead>
-              <tr><th rowspan="2">测点</th><th colspan="3">水准尺读数</th><th rowspan="2">视线高</th><th rowspan="2">高程(m)</th><th rowspan="2">设计高程(m)</th><th rowspan="2">偏差值(mm)</th><th rowspan="2">操作</th></tr>
+              <tr><th rowspan="2">测点</th><th colspan="3">水准尺读数</th><th rowspan="2">视线高</th><th rowspan="2">高程(m)</th><th rowspan="2">设计高程(m)</th><th rowspan="2">偏差值(m)</th><th rowspan="2">操作</th></tr>
               <tr><th>后视</th><th>中间点</th><th>前视</th></tr>
             </thead>
             <tbody id="levelBody"></tbody>
@@ -250,6 +250,6 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="app.js?v=20260819h"></script>
+  <script src="app.js?v=20260819i"></script>
 </body>
 </html>
