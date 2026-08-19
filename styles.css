@@ -229,9 +229,11 @@ table.data-table .row-control td { background: rgba(240,160,32,0.08); }
 
 /* ===== 水准测量记录：偏差值(m) ===== */
 .lv-dev { font-weight: 700; min-width: 72px; font-variant-numeric: tabular-nums; }
-/* 水准测量记录模块：字体略小，便于一屏容纳全列 */
-#levelTable, #levelTable th, #levelTable td { font-size: 12px; }
-#levelTable td input { font-size: 12px; }
+/* 三个录入模块：水准测量记录 / 原始数据录入 / 测量录入 字体调小，便于一屏容纳 */
+#levelTable, #levelTable th, #levelTable td,
+#origdataTable, #origdataTable th, #origdataTable td,
+#measureTable, #measureTable th, #measureTable td { font-size: 11px; }
+#levelTable td input, #origdataTable td input, #measureTable td input { font-size: 11px; }
 
 /* ===== 会话模块 ===== */
 .session-module { border-left: 4px solid var(--success); }
