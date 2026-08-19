@@ -183,6 +183,13 @@ button { cursor: pointer; border: none; border-radius: 9px; padding: 11px 14px; 
 .stat-card { flex: 1; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px; text-align: center; }
 .stat-label { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
 .stat-value { font-size: 22px; font-weight: 700; color: var(--primary); }
+.stat-value.success { color: var(--success); }
+.stat-value.warning { color: var(--warning); }
+
+/* 质量情况页：合格/超限徽标 */
+.q-badge { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.q-badge.pass { background: rgba(76, 175, 80, .18); color: #81c784; }
+.q-badge.fail { background: rgba(255, 107, 107, .16); color: #ff6b6b; }
 
 /* ===== 表格 ===== */
 .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; border: 1px solid var(--border); }
@@ -198,7 +205,7 @@ table.data-table .row-control td { background: rgba(240,160,32,0.08); }
 .dev-positive { color: #ff6b6b !important; font-weight: 700; }
 .dev-negative { color: #4dd0a0 !important; font-weight: 700; }
 .dev-zero { color: var(--success) !important; }
-/* 测量录入/结果页：三列组颜色区分（绿=测量高程 / 橙=原始数据 / 蓝=测量差值） */
+/* 测量录入/结果页：三列组颜色区分（绿=测量高程 / 橙=设计读数 / 蓝=测量差值） */
 .grp-elev { background: rgba(76,175,80,0.15) !important; }
 .grp-orig { background: rgba(255,152,0,0.13) !important; }
 .grp-diff { background: rgba(33,150,243,0.15) !important; }

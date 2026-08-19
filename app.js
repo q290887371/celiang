@@ -37,7 +37,7 @@ function defaultState() {
     inputMode: 'normal',
     showMeasureElev: true,
     showMeasureDiff: true,
-    showMeasureOrig: false,
+    showMeasureOrig: true,
     measureSessions: [],
     showSessionElev: true,
     showSessionDiff: true,
@@ -108,6 +108,16 @@ function computeMeasureDiffs(m) {
   if (isNaN(los)) return [null, null, null, null, null];
   const mi = computeMeasureInputs(m.designElev);
   return mi.map((v, k) => (v !== null && od[k] !== null && od[k] !== '') ? (los - v - od[k]) : null);
+}
+
+// 设计读数（理论塔尺读数）= 视线高 − 目标高程
+// = 视线高 − (设计标高 − 不生效层厚之和 + 虚铺 − 偏距×横坡)
+//（南/北用偏距3路边缘、腰用偏距2、中用偏距1）
+function computeDesignReadings(m) {
+  const los = parseFloat(state.measureSetup.los);
+  if (isNaN(los)) return [null, null, null, null, null];
+  const mi = computeMeasureInputs(m.designElev);
+  return mi.map(v => (v !== null && !isNaN(v)) ? (los - v) : null);
 }
 
 /* ============================================================
@@ -505,7 +515,7 @@ function renderMeasureHead() {
   const pts = '<th>南</th><th>南腰</th><th>中</th><th>北腰</th><th>北</th>';
   const gE = showE ? '<th colspan="5" style="background:rgba(76,175,80,0.12)">测量高程</th>' : '';
   const gD = showD ? '<th colspan="5" style="background:rgba(33,150,243,0.12)">测量差值</th>' : '';
-  const gO = showO ? '<th colspan="5" style="background:rgba(255,152,0,0.10)">原始数据</th>' : '';
+  const gO = showO ? '<th colspan="5" style="background:rgba(255,152,0,0.10)">设计读数</th>' : '';
   head.innerHTML = `<tr>
     <th rowspan="2" style="width:40px">序</th>
     <th rowspan="2" style="width:90px">桩号</th>
@@ -526,7 +536,7 @@ function renderMeasures() {
   const rows = state.measures.filter(m => (m.originalData || []).some(d => d !== null));
   const colCount = 3 + (state.showMeasureElev ? 5 : 0) + (state.showMeasureDiff ? 5 : 0) + (state.showMeasureOrig ? 5 : 0) + 1;
   if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="${colCount}" class="empty-state"><p>尚无已录入原始数据的桩号；请先在「原始数据」页录入 5 点读数</p></td></tr>`;
+    body.innerHTML = `<tr><td colspan="${colCount}" class="empty-state"><p>尚无已录入原始数据的桩号；请在上方「原始数据录入」录入 5 点读数</p></td></tr>`;
     return;
   }
   body.innerHTML = rows.map((m, i) => {
@@ -535,6 +545,7 @@ function renderMeasures() {
     m.designElev = isNaN(de) ? '' : de.toFixed(4);
     const me = computeMeasureElev(m);
     const md = computeMeasureDiffs(m);
+    const dr = computeDesignReadings(m);
     const meCells = state.showMeasureElev ? me.map(v =>
       `<td><input class="calculated" value="${v !== null ? v.toFixed(4) : ''}" readonly></td>`).join('') : '';
     const mdCells = state.showMeasureDiff ? md.map(v => {
@@ -542,13 +553,13 @@ function renderMeasures() {
       const cls = Math.abs(v) > (state.project.tolerance || 0) / 1000 ? (v > 0 ? 'dev-positive' : 'dev-negative') : 'dev-zero';
       return `<td class="calculated diff ${cls}">${v.toFixed(3)}</td>`;
     }).join('') : '';
-    const odCells = state.showMeasureOrig ? (m.originalData || [null, null, null, null, null]).map(v =>
+    const drCells = state.showMeasureOrig ? dr.map(v =>
       `<td><input class="calculated" value="${v !== null ? v.toFixed(4) : ''}" readonly></td>`).join('') : '';
     return `<tr>
       <td>${i + 1}</td>
       <td class="station-cell">${m.station || ''}</td>
       <td>${m.designElev || ''}</td>
-      ${meCells}${mdCells}${odCells}
+      ${meCells}${mdCells}${drCells}
       <td><button class="btn btn-sm btn-danger" onclick="deleteMeasureRow('${m._id}')">删</button></td>
     </tr>`;
   }).join('');
@@ -660,6 +671,81 @@ function toggleSessionCol(which, on) {
   else if (which === 'orig') state.showSessionOrig = on;
   renderResults(); saveAll();
 }
+
+/* ============================================================
+   质量情况 · 测量差值分析（逐桩号判定）
+   ============================================================ */
+function renderQuality() {
+  const sessions = state.measureSessions || [];
+  const tol = (state.project.tolerance || 0) / 1000; // mm → m
+  const pts = ['南', '南腰', '中', '北腰', '北'];
+  let totalSt = 0, passSt = 0, totalPts = 0, passPts = 0;
+  let maxAbs = 0, sumAbs = 0, cntAbs = 0;
+  const cards = sessions.map((s, idx) => {
+    const rowsHtml = (s.rows || []).map(r => {
+      const md = r.measureDiff || [null, null, null, null, null];
+      let overN = 0, maxAbsRow = 0;
+      const cells = md.map(v => {
+        if (v === null || v === '') return '<td class="calculated text-muted">-</td>';
+        const a = Math.abs(v);
+        if (a > maxAbsRow) maxAbsRow = a;
+        if (a > tol) overN++;
+        const cls = a > tol ? (v > 0 ? 'dev-positive' : 'dev-negative') : 'dev-zero';
+        return `<td class="calculated diff ${cls}">${v.toFixed(3)}</td>`;
+      }).join('');
+      totalSt++;
+      const valid = md.filter(v => v !== null && v !== '');
+      totalPts += valid.length;
+      valid.forEach(v => { sumAbs += Math.abs(v); cntAbs++; if (Math.abs(v) > maxAbs) maxAbs = Math.abs(v); });
+      if (overN === 0) { passSt++; passPts += valid.length; }
+      else passPts += valid.filter(v => Math.abs(v) <= tol).length;
+      const badge = overN === 0
+        ? '<span class="q-badge pass">合格</span>'
+        : `<span class="q-badge fail">超限 ${overN} 点</span>`;
+      return `<tr>
+        <td class="station-cell">${r.station || ''}</td>
+        <td>${r.designElev || ''}</td>
+        ${cells}
+        <td class="calculated diff">${(maxAbsRow * 1000).toFixed(1)}</td>
+        <td>${badge}</td>
+      </tr>`;
+    }).join('');
+    return `<div class="card session-module">
+      <div class="card-title">
+        <span>模块 #${idx + 1}　<span class="text-sm text-muted">${s.timestamp || ''}</span></span>
+      </div>
+      <div class="session-meta">
+        <span><b>水准点：</b>${s.benchmarkName || '—'}</span>
+        <span><b>视线高：</b>${s.los !== '' && s.los != null ? s.los + ' m' : '—'}</span>
+        <span><b>容许偏差：</b>±${state.project.tolerance || 0} mm</span>
+        <span class="text-sm text-muted">共 ${s.rows ? s.rows.length : 0} 个桩号</span>
+      </div>
+      <div class="table-wrapper table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr><th>桩号</th><th>设计标高(m)</th><th colspan="5">测量差值（南→北）</th><th>最大偏差(mm)</th><th>判定</th></tr>
+            <tr><th></th><th></th>${pts.map(p => '<th>' + p + '</th>').join('')}<th></th><th></th></tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+  const rate = totalSt ? (passSt / totalSt * 100) : 0;
+  const avgAbs = cntAbs ? (sumAbs / cntAbs * 1000) : 0;
+  const st = document.getElementById('qualityStats');
+  if (st) st.innerHTML = `
+    <div class="stat-card"><div class="stat-label">模块数</div><div class="stat-value info">${sessions.length}</div></div>
+    <div class="stat-card"><div class="stat-label">桩号总数</div><div class="stat-value info">${totalSt}</div></div>
+    <div class="stat-card"><div class="stat-label">合格桩号</div><div class="stat-value success">${passSt}</div></div>
+    <div class="stat-card"><div class="stat-label">合格率</div><div class="stat-value ${rate >= 90 ? 'success' : 'warning'}">${rate.toFixed(1)}%</div></div>
+    <div class="stat-card"><div class="stat-label">最大偏差</div><div class="stat-value warning">${(maxAbs * 1000).toFixed(1)} mm</div></div>
+    <div class="stat-card"><div class="stat-label">平均偏差(绝对)</div><div class="stat-value info">${avgAbs.toFixed(1)} mm</div></div>`;
+  const box = document.getElementById('qualityContainer');
+  if (box) box.innerHTML = sessions.length
+    ? cards
+    : '<div class="empty-state"><p>暂无已保存的测量模块。请先在「测量录入」录入数据并保存，即可在此查看每个桩号的测量差值质量分析。</p></div>';
+}
 function exportSessionsXLSX() {
   const sessions = state.measureSessions || [];
   if (!sessions.length) { toast('暂无模块可导出'); return; }
@@ -719,7 +805,8 @@ function switchTab(tabId) {
   if (panel) panel.classList.add('active');
   const nav = document.querySelector(`.nav-item[data-tab="${tabId}"]`);
   if (nav) nav.classList.add('active');
-  if (tabId === 'measure') { populateBenchmarks(); updateLineOfSight(); renderMeasures(); }
+  if (tabId === 'measure') { populateBenchmarks(); updateLineOfSight(); renderOriginalData(); renderMeasures(); }
+  if (tabId === 'origdata') renderQuality();
   if (tabId === 'result') renderResults();
 }
 let _toastTimer = null;
@@ -740,7 +827,7 @@ function bindAll() {
 }
 function renderAll() {
   renderLayerList(); renderBenchmarkList(); renderControlList();
-  renderOriginalData(); renderMeasures(); renderResults();
+  renderOriginalData(); renderMeasures(); renderResults(); renderQuality();
 }
 
 /* ============================================================

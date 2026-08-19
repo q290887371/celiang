@@ -112,28 +112,13 @@
       </div>
     </section>
 
-    <!-- Tab 2: 原始数据 -->
+    <!-- Tab 2: 质量情况（原"原始数据"页，录入已移至测量录入页顶部） -->
     <section class="tab-panel" id="tab-origdata">
       <div class="card">
-        <div class="card-title">
-          <span>原始数据录入</span>
-        </div>
-        <div class="section-label">每桩号 5 点读数：南 / 南腰 / 中 / 北腰 / 北（单位 m）</div>
-        <div class="table-wrapper">
-          <table class="data-table" id="origdataTable">
-            <thead>
-              <tr>
-                <th>桩号</th><th>设计标高</th><th>南</th><th>南腰</th><th>中</th><th>北腰</th><th>北</th><th>操作</th>
-              </tr>
-            </thead>
-            <tbody id="origdataBody"></tbody>
-          </table>
-        </div>
-        <div class="btn-row">
-          <button class="btn btn-sm btn-primary" onclick="addMeasureRow()">+ 添加测量行</button>
-          <button class="btn btn-sm" onclick="addMeasureRow(true)">+ 控制点行</button>
-          <button class="btn btn-sm btn-danger" id="delAllBtn" onclick="deleteAllMeasures(this)">全部删除</button>
-        </div>
+        <div class="card-title"><span>质量情况 · 测量差值分析</span></div>
+        <div class="section-label">按已保存的测量模块逐桩号分析测量差值（偏差）：|偏差| ≤ 容许偏差为合格，超出按正/负偏差红/绿标出（正=偏厚偏实，负=偏薄）。</div>
+        <div class="stats-grid" id="qualityStats"></div>
+        <div id="qualityContainer"></div>
       </div>
     </section>
 
@@ -158,6 +143,26 @@
       </div>
 
       <div class="card">
+        <div class="card-title"><span>原始数据录入</span></div>
+        <div class="section-label">每桩号 5 点读数：南 / 南腰 / 中 / 北腰 / 北（单位 m）。下方「测量录入」的 设计读数 / 测量高程 / 测量差值 将据此自动计算。</div>
+        <div class="table-wrapper">
+          <table class="data-table" id="origdataTable">
+            <thead>
+              <tr>
+                <th>桩号</th><th>设计标高</th><th>南</th><th>南腰</th><th>中</th><th>北腰</th><th>北</th><th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="origdataBody"></tbody>
+          </table>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-sm btn-primary" onclick="addMeasureRow()">+ 添加测量行</button>
+          <button class="btn btn-sm" onclick="addMeasureRow(true)">+ 控制点行</button>
+          <button class="btn btn-sm btn-danger" id="delAllBtn" onclick="deleteAllMeasures(this)">全部删除</button>
+        </div>
+      </div>
+
+      <div class="card">
         <div class="card-title">
           <span>测量录入 (m)</span>
         </div>
@@ -165,9 +170,9 @@
           <span class="toggle-label">显示列：</span>
           <label class="chk-inline"><input type="checkbox" checked onchange="toggleMeasureCol('elev', this.checked)"> 测量高程</label>
           <label class="chk-inline"><input type="checkbox" checked onchange="toggleMeasureCol('diff', this.checked)"> 测量差值</label>
-          <label class="chk-inline"><input type="checkbox" onchange="toggleMeasureCol('orig', this.checked)"> 原始数据</label>
+          <label class="chk-inline"><input type="checkbox" checked onchange="toggleMeasureCol('orig', this.checked)"> 设计读数</label>
         </div>
-        <div class="section-label">填桩号自动匹配设计标高；测量高程=视线高−原始数据；测量差值=视线高−目标高程−原始数据</div>
+        <div class="section-label">填桩号自动匹配设计标高；设计读数=视线高−目标高程；测量高程=视线高−原始数据；测量差值=测量高程−目标高程=设计读数−原始数据</div>
         <div class="table-wrapper">
           <table class="data-table" id="measureTable">
             <thead id="measureHead"></thead>
@@ -207,7 +212,7 @@
       <span class="ico">⚙️</span><span>项目设置</span>
     </button>
     <button class="nav-item" data-tab="origdata" onclick="switchTab('origdata')">
-      <span class="ico">📝</span><span>原始数据</span>
+      <span class="ico">📋</span><span>质量情况</span>
     </button>
     <button class="nav-item" data-tab="measure" onclick="switchTab('measure')">
       <span class="ico">📐</span><span>测量录入</span>
