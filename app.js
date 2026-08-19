@@ -459,7 +459,7 @@ function renderOriginalData() {
       `<td><input type="number" step="0.001" value="${v !== null ? v : ''}" oninput="onOrigInput('${m._id}',${k},this.value)"></td>`
     ).join('');
     return `<tr class="${m.isControl ? 'row-control' : ''}">
-      <td><input type="text" value="${m.station || ''}" placeholder="K0+600" oninput="onStationInput('${m._id}',this.value)" style="width:88px"></td>
+      <td><input type="text" value="${m.station || ''}" placeholder="K0+600" oninput="onStationInput('${m._id}',this.value)"></td>
       <td class="de-cell" id="de-${m._id}">${m.designElev || ''}</td>
       ${cells}
       <td><button class="btn btn-sm btn-danger" onclick="deleteMeasureRow('${m._id}')">删</button></td>
@@ -641,7 +641,7 @@ function renderLevelRows() {
   body.innerHTML = state.levelRows.map(r => {
     const devCls = r.dev > 0 ? 'dev-positive' : (r.dev < 0 ? 'dev-negative' : '');
     return `<tr>
-      <td><input type="text" value="${r.pt || ''}" placeholder="如 K0+800中/BM1" oninput="onLevelInput('${r._id}','pt',this.value)" style="width:96px"></td>
+      <td><input type="text" value="${r.pt || ''}" placeholder="桩号+方位" oninput="onLevelInput('${r._id}','pt',this.value)"></td>
       <td><input type="number" step="0.001" value="${r.bs != null ? r.bs : ''}" oninput="onLevelInput('${r._id}','bs',this.value)"></td>
       <td><input type="number" step="0.001" value="${r.mid != null ? r.mid : ''}" oninput="onLevelInput('${r._id}','mid',this.value)"></td>
       <td><input type="number" step="0.001" value="${r.fs != null ? r.fs : ''}" oninput="onLevelInput('${r._id}','fs',this.value)"></td>

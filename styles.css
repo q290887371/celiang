@@ -21,7 +21,7 @@
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; padding: 0; }
+html, body { margin: 0; padding: 0; width: 100%; overflow-x: hidden; box-sizing: border-box; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   background: var(--bg);
@@ -193,12 +193,12 @@ button { cursor: pointer; border: none; border-radius: 9px; padding: 11px 14px; 
 .q-badge.fail { background: rgba(255, 107, 107, .16); color: #ff6b6b; }
 
 /* ===== 表格 ===== */
-.table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; border: 1px solid var(--border); }
+.table-wrapper { overflow-x: hidden; -webkit-overflow-scrolling: touch; border-radius: 8px; border: 1px solid var(--border); }
 .table-scroll { max-width: 100%; }
 table.data-table { border-collapse: collapse; width: 100%; font-size: 13px; }
-table.data-table th, table.data-table td { border: 1px solid var(--border); padding: 7px 8px; text-align: center; white-space: nowrap; }
+table.data-table th, table.data-table td { border: 1px solid var(--border); padding: 4px 4px; text-align: center; white-space: normal; word-break: break-word; line-height: 1.25; }
 table.data-table th { background: var(--surface-2); color: var(--text-secondary); font-weight: 600; position: sticky; top: 0; }
-table.data-table td input { min-height: 38px; width: 64px; text-align: center; padding: 6px; border-radius: 6px; }
+table.data-table td input { min-height: 30px; width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; text-align: center; padding: 3px 2px; border-radius: 6px; }
 table.data-table .station-cell { font-weight: 600; color: var(--text-primary); background: var(--surface-2); }
 table.data-table .row-control td { background: rgba(240,160,32,0.08); }
 .calculated { background: #1c232c; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
