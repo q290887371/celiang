@@ -263,28 +263,31 @@ function downloadAnchor(blob, name) {
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
   } catch (e) { console.error('download anchor failed', e); }
 }
+// Capacitor Filesystem 的 Directory / Encoding 是包内枚举，原生插件对象上没有，
+// 这里用官方字符串枚举值（大小写：'CACHE'/'DOCUMENTS'/'EXTERNAL_STORAGE'、'base64'）
+const CFS_DIR = { CACHE: 'CACHE', DOCUMENTS: 'DOCUMENTS', EXTERNAL_STORAGE: 'EXTERNAL_STORAGE' };
+const CFS_ENC = { UTF8: 'utf8', BASE64: 'base64' };
 // 原生导出：优先写公共 Download/测量记录，降级 Documents，再降级 Cache + 系统分享
 function exportNativeFile(blob, name, folder) {
   const cap = window.Capacitor;
   const P = (cap && cap.Plugins) || {};
   const FS = P.Filesystem;
   if (!FS) return Promise.resolve('fallback');
-  const Dir = FS.Directory, Enc = FS.Encoding;
   let b64;
   return blobToB64(blob)
     .then(function (b) { b64 = b; if (FS.requestPermissions) return FS.requestPermissions().catch(function () {}); })
     .then(function () {
       // 1) 公共 Download 目录 /storage/emulated/0/Download/测量记录/
-      return FS.writeFile({ path: 'Download/' + folder + '/' + name, data: b64, directory: Dir.ExternalStorage, encoding: Enc.BASE64, recursive: true }).then(function () {
+      return FS.writeFile({ path: 'Download/' + folder + '/' + name, data: b64, directory: CFS_DIR.EXTERNAL_STORAGE, encoding: CFS_ENC.BASE64, recursive: true }).then(function () {
         return '/storage/emulated/0/Download/测量记录/';
       }).catch(function () {
         // 2) 公共 Documents 目录
-        return FS.writeFile({ path: folder + '/' + name, data: b64, directory: Dir.Documents, encoding: Enc.BASE64, recursive: true }).then(function () {
+        return FS.writeFile({ path: folder + '/' + name, data: b64, directory: CFS_DIR.DOCUMENTS, encoding: CFS_ENC.BASE64, recursive: true }).then(function () {
           return '/storage/emulated/0/Documents/测量记录/';
         }).catch(function () {
           // 3) Cache + 系统分享面板（选“保存到下载/文件”即可落盘）
-          return FS.writeFile({ path: name, data: b64, directory: Dir.Cache, encoding: Enc.BASE64 }).then(function () {
-            return FS.getUri({ path: name, directory: Dir.Cache });
+          return FS.writeFile({ path: name, data: b64, directory: CFS_DIR.CACHE, encoding: CFS_ENC.BASE64 }).then(function () {
+            return FS.getUri({ path: name, directory: CFS_DIR.CACHE });
           }).then(function (res) {
             if (P.Share) return P.Share.share({ title: name, files: [res.uri], dialogTitle: '导出 ' + name }).then(function () { return null; });
             return null;
