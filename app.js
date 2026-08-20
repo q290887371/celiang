@@ -311,7 +311,7 @@ function populateSubItem() {
 function onSubItemChange() {
   const sel = document.getElementById('subItem');
   if (sel) state.project.subItem = sel.value;
-  saveAll(); renderLayerList(); renderMeasures();
+  saveAll(); renderLayerList(); renderMeasures(); renderLevelRows(); renderControlList();
 }
 
 function renderLayerList() {
@@ -518,7 +518,14 @@ function designElevForPoint(pt, sm) {
   if (/腰/.test(String(pt || ''))) off = o[1];
   else if (/[南北]/.test(String(pt || ''))) off = o[2];
   else off = o[0];
-  return base - off * cs;
+  const offElev = base - off * cs; // 对应偏距处设计高程
+  const total = totalLayerThickness();   // 结构层总厚·自动
+  const act = activeLayerKeys();         // 当前分项工程生效层
+  const sumAct = (state.project.layers || []).reduce((s, l) => s + (act.has(l.key) ? (parseFloat(l.thickness) || 0) : 0), 0);
+  const loose = parseFloat(state.project.looseThickness) || 0;
+  const ret = parseFloat(state.project.returnThickness) || 0;
+  // 设计高程 = 偏距处设计高程 − 结构层总厚 + 生效层厚度和 + 虚铺 + 下返
+  return offElev - total + sumAct + loose + ret;
 }
 function addLevelRow() {
   state.levelRows.push({
