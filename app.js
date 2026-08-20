@@ -20,6 +20,7 @@ function defaultState() {
       ],
       subItem: 'ac_fine',
       looseThickness: 0.0,
+      returnThickness: 0.0,
       crossSlope: 0.02,
       offsets: [0, 5, 10],
       tolerance: { upper: 5, lower: -5, warn: 3 },
@@ -249,6 +250,7 @@ function bindProjectInputs() {
   document.getElementById('projectName').value = state.project.name || '';
   populateSubItem();
   document.getElementById('looseThickness').value = state.project.looseThickness;
+  document.getElementById('returnThickness').value = state.project.returnThickness;
   document.getElementById('crossSlope').value = state.project.crossSlope;
   const ltEl = document.getElementById('layerTotal');
   if (ltEl) ltEl.value = totalLayerThickness().toFixed(2);
@@ -262,6 +264,7 @@ function bindProjectInputs() {
 }
 function onProjectChange() {
   state.project.looseThickness = parseFloat(document.getElementById('looseThickness').value) || 0;
+  state.project.returnThickness = parseFloat(document.getElementById('returnThickness').value) || 0;
   state.project.crossSlope = parseFloat(document.getElementById('crossSlope').value) || 0;
   state.project.offsets = [
     parseFloat(document.getElementById('off1').value) || 0,
