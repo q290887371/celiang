@@ -10,9 +10,9 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
   <link rel="apple-touch-icon" href="assets/icon.svg">
-  <link rel="stylesheet" href="styles.css?v=20260819w">
-  <script src="lib/sql-wasm.js?v=20260819w"></script>
-  <script src="lib/xlsx-export.js?v=20260819w"></script>
+  <link rel="stylesheet" href="styles.css?v=20260819x">
+  <script src="lib/sql-wasm.js?v=20260819x"></script>
+  <script src="lib/xlsx-export.js?v=20260819x"></script>
 </head>
 <body>
 
@@ -50,6 +50,10 @@
         <div class="form-row">
           <label>虚铺厚度(m)</label>
           <div class="field"><input id="looseThickness" type="number" step="0.01" onchange="onProjectChange()"></div>
+        </div>
+        <div class="form-row">
+          <label>设计调整厚度(m)</label>
+          <div class="field"><input id="designAdjustThickness" type="number" step="0.01" onchange="onProjectChange()"></div>
         </div>
         <div class="form-row">
           <label>下返厚度(m)</label>
@@ -156,7 +160,7 @@
           <span>水准测量记录</span>
           <button class="btn btn-sm" onclick="exportLevelXLSX()">导出XLSX</button>
         </div>
-        <div class="section-label">计算规则：视线高=本行高程+本行后视；本行高程=上一行视线高−本行中间点(或前视)；偏差值(m)=高程−设计高程自动算。首行输入已知点高程+后视即得视线高。设计高程=测点方位对应偏距设计高程(中=0m/腰=5m/南北=10m)−结构层总厚·自动+生效层厚度和+虚铺+下返。</div>
+        <div class="section-label">计算规则：视线高=本行高程+本行后视；本行高程=上一行视线高−本行中间点(或前视)；偏差值(m)=高程−设计高程自动算。首行输入已知点高程+后视即得视线高。设计高程=偏距设计高程+设计调整−结构层总厚·自动+生效层厚度和+虚铺+下返。</div>
         <div class="table-wrapper table-scroll" id="levelWrap">
           <table class="data-table" id="levelTable">
             <thead>
@@ -273,6 +277,6 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="app.js?v=20260819w"></script>
+  <script src="app.js?v=20260819x"></script>
 </body>
 </html>

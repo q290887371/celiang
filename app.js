@@ -20,6 +20,7 @@ function defaultState() {
       ],
       subItem: 'ac_fine',
       looseThickness: 0.0,
+      designAdjustThickness: 0.0,
       returnThickness: 0.0,
       crossSlope: 0.02,
       offsets: [0, 5, 10],
@@ -250,6 +251,7 @@ function bindProjectInputs() {
   document.getElementById('projectName').value = state.project.name || '';
   populateSubItem();
   document.getElementById('looseThickness').value = state.project.looseThickness;
+  document.getElementById('designAdjustThickness').value = state.project.designAdjustThickness;
   document.getElementById('returnThickness').value = state.project.returnThickness;
   document.getElementById('crossSlope').value = state.project.crossSlope;
   const ltEl = document.getElementById('layerTotal');
@@ -264,6 +266,7 @@ function bindProjectInputs() {
 }
 function onProjectChange() {
   state.project.looseThickness = parseFloat(document.getElementById('looseThickness').value) || 0;
+  state.project.designAdjustThickness = parseFloat(document.getElementById('designAdjustThickness').value) || 0;
   state.project.returnThickness = parseFloat(document.getElementById('returnThickness').value) || 0;
   state.project.crossSlope = parseFloat(document.getElementById('crossSlope').value) || 0;
   state.project.offsets = [
@@ -523,9 +526,10 @@ function designElevForPoint(pt, sm) {
   const act = activeLayerKeys();         // 当前分项工程生效层
   const sumAct = (state.project.layers || []).reduce((s, l) => s + (act.has(l.key) ? (parseFloat(l.thickness) || 0) : 0), 0);
   const loose = parseFloat(state.project.looseThickness) || 0;
+  const adj = parseFloat(state.project.designAdjustThickness) || 0;
   const ret = parseFloat(state.project.returnThickness) || 0;
-  // 设计高程 = 偏距处设计高程 − 结构层总厚 + 生效层厚度和 + 虚铺 + 下返
-  return offElev - total + sumAct + loose + ret;
+  // 设计高程 = 偏距处设计高程 + 设计调整厚度 − 结构层总厚 + 生效层厚度和 + 虚铺 + 下返
+  return offElev + adj - total + sumAct + loose + ret;
 }
 function addLevelRow() {
   state.levelRows.push({
