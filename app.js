@@ -312,26 +312,23 @@ function webShareSave(blob, name) {
 function downloadBlob(blob, name) {
   const cap = window.Capacitor;
   const native = !!(cap && cap.isNativePlatform && cap.isNativePlatform());
+  if (!native) { downloadAnchor(blob, name); toast('已导出 ' + name + '（请用浏览器/文件管理器查看）'); return; }
   const P = (cap && cap.Plugins) || {};
-  if (!native) {
-    downloadAnchor(blob, name);
-    toast('【诊断·web】Capacitor 未注入，仅网页下载，可能不落盘：' + name);
-    return;
-  }
-  if (!P.Filesystem) {
-    downloadAnchor(blob, name);
-    toast('【诊断·native】Filesystem 插件缺失（cap sync 未生效）' + name);
-    return;
-  }
-  exportNativeFile(blob, name, '测量记录').then(function (r) {
-    if (r === 'fallback' || (typeof r === 'string' && r.indexOf('FAIL:') === 0)) {
-      downloadAnchor(blob, name);
-      toast('导出失败：' + (typeof r === 'string' ? r.slice(5) : r) + ' ' + name);
-      return;
-    }
-    if (typeof r === 'string') toast('已保存：' + r + name + '　请到文件管理器查看');
-    else toast('已导出：' + name + '　请在系统分享面板选 保存到下载/文件');
-  }).catch(function (e) { console.error('导出失败', e); downloadAnchor(blob, name); toast('【诊断·error】' + (e && e.message ? e.message : '未知') + ' ' + name); });
+  // 第一优先：系统保存/分享面板（不依赖 Filesystem 编码）
+  webShareSave(blob, name).then(function (ok) {
+    if (ok) { toast('已调起系统保存，请在面板选「保存到下载/文件」：' + name); return; }
+    // 备选：Filesystem 直接写公共目录
+    if (!P.Filesystem) { downloadAnchor(blob, name); toast('已导出 ' + name + '，请到系统下载里查找'); return; }
+    exportNativeFile(blob, name, '测量记录').then(function (r) {
+      if (typeof r === 'string' && r.indexOf('FAIL:') === 0) {
+        downloadAnchor(blob, name);
+        toast('保存失败（' + r.slice(5) + '），已尝试网页下载：' + name);
+        return;
+      }
+      if (typeof r === 'string') { toast('已保存：' + r + name + '　请到文件管理器查看'); return; }
+      toast('已调起系统分享：' + name + '　请选 保存到下载/文件');
+    }).catch(function (e) { console.error('导出失败', e); downloadAnchor(blob, name); toast('已导出 ' + name); });
+  });
 }
 
 /* ============================================================
