@@ -880,6 +880,19 @@ function measureDiffFromLevel(station) {
   });
   return arr;
 }
+// 测量高程：由水准测量记录的「高程」按 桩号+方位 提供
+function measureElevFromLevel(station) {
+  const arr = [null, null, null, null, null];
+  const sm = parseStation(station);
+  if (isNaN(sm)) return arr;
+  (state.levelRows || []).forEach(r => {
+    if (stationInText(r.pt) === sm) {
+      const idx = azimuthIndex(r.pt);
+      if (idx >= 0 && r.elev != null && r.elev !== '' && !isNaN(parseFloat(r.elev))) arr[idx] = +parseFloat(r.elev).toFixed(3);
+    }
+  });
+  return arr;
+}
 function renderMeasures() {
   renderMeasureHead();
   const body = document.getElementById('measureBody');
@@ -893,7 +906,7 @@ function renderMeasures() {
     const sm = parseStation(m.station);
     const de = !isNaN(sm) ? elevationAtStation(sm) : NaN;
     m.designElev = isNaN(de) ? '' : de.toFixed(3);
-    const me = computeMeasureElev(m);
+    const me = measureElevFromLevel(m.station);
     const md = measureDiffFromLevel(m.station);
     const dr = computeDesignReadings(m);
     const meCells = state.showMeasureElev ? me.map(v =>
