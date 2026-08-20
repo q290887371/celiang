@@ -268,30 +268,33 @@ function downloadAnchor(blob, name) {
 const CFS_DIR = { CACHE: 'CACHE', DOCUMENTS: 'DOCUMENTS', EXTERNAL_STORAGE: 'EXTERNAL_STORAGE' };
 const CFS_ENC = { UTF8: 'utf8', BASE64: 'base64' };
 // 原生导出：优先写公共 Download/测量记录，降级 Documents，再降级 Cache + 系统分享
+// 返回：成功路径 | null(已走分享) | 'fallback' | 'FAIL:<第几步:错误消息>'
 function exportNativeFile(blob, name, folder) {
   const cap = window.Capacitor;
   const P = (cap && cap.Plugins) || {};
   const FS = P.Filesystem;
-  if (!FS) return Promise.resolve('fallback');
+  if (!FS) return Promise.resolve('FAIL: Filesystem插件不存在');
   let b64;
   return blobToB64(blob)
     .then(function (b) { b64 = b; if (FS.requestPermissions) return FS.requestPermissions().catch(function () {}); })
     .then(function () {
-      // 1) 公共 Download 目录 /storage/emulated/0/Download/测量记录/
+      // 1) 公共 Download
       return FS.writeFile({ path: 'Download/' + folder + '/' + name, data: b64, directory: CFS_DIR.EXTERNAL_STORAGE, encoding: CFS_ENC.BASE64, recursive: true }).then(function () {
         return '/storage/emulated/0/Download/测量记录/';
-      }).catch(function () {
-        // 2) 公共 Documents 目录
+      }).catch(function (e1) {
+        // 2) 公共 Documents
         return FS.writeFile({ path: folder + '/' + name, data: b64, directory: CFS_DIR.DOCUMENTS, encoding: CFS_ENC.BASE64, recursive: true }).then(function () {
           return '/storage/emulated/0/Documents/测量记录/';
-        }).catch(function () {
-          // 3) Cache + 系统分享面板（选“保存到下载/文件”即可落盘）
+        }).catch(function (e2) {
+          // 3) Cache
           return FS.writeFile({ path: name, data: b64, directory: CFS_DIR.CACHE, encoding: CFS_ENC.BASE64 }).then(function () {
             return FS.getUri({ path: name, directory: CFS_DIR.CACHE });
           }).then(function (res) {
             if (P.Share) return P.Share.share({ title: name, files: [res.uri], dialogTitle: '导出 ' + name }).then(function () { return null; });
             return null;
-          }).catch(function () { return 'fallback'; });
+          }).catch(function (e3) {
+            return 'FAIL: Download[' + (e1 && e1.message) + '] Documents[' + (e2 && e2.message) + '] Cache[' + (e3 && e3.message) + ']';
+          });
         });
       });
     });
@@ -321,13 +324,13 @@ function downloadBlob(blob, name) {
     return;
   }
   exportNativeFile(blob, name, '测量记录').then(function (r) {
+    if (r === 'fallback' || (typeof r === 'string' && r.indexOf('FAIL:') === 0)) {
+      downloadAnchor(blob, name);
+      toast('导出失败：' + (typeof r === 'string' ? r.slice(5) : r) + ' ' + name);
+      return;
+    }
     if (typeof r === 'string') toast('已保存：' + r + name + '　请到文件管理器查看');
-    else if (r === 'fallback') {
-      webShareSave(blob, name).then(function (ok) {
-        if (ok) toast('已分享保存：' + name + '　请在面板选 保存到下载');
-        else { downloadAnchor(blob, name); toast('【诊断】公共目录写入失败且无分享能力，请检查存储权限：' + name); }
-      });
-    } else toast('已调用系统分享：' + name + '　请在面板选 保存到下载/文件');
+    else toast('已导出：' + name + '　请在系统分享面板选 保存到下载/文件');
   }).catch(function (e) { console.error('导出失败', e); downloadAnchor(blob, name); toast('【诊断·error】' + (e && e.message ? e.message : '未知') + ' ' + name); });
 }
 
