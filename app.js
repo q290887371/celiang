@@ -873,7 +873,7 @@ function measureDiffFromLevel(station) {
   const sm = parseStation(station);
   if (isNaN(sm)) return arr;
   (state.levelRows || []).forEach(r => {
-    if (parseStation(r.pt) === sm) {
+    if (stationInText(r.pt) === sm) {
       const idx = azimuthIndex(r.pt);
       if (idx >= 0 && r.dev != null && !isNaN(r.dev)) arr[idx] = +r.dev.toFixed(3);
     }
