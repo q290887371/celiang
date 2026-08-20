@@ -305,29 +305,27 @@ function webShareSave(blob, name) {
 }
 function downloadBlob(blob, name) {
   const cap = window.Capacitor;
-  const native = cap && cap.isNativePlatform && cap.isNativePlatform();
-  if (native) {
-    const P = (cap && cap.Plugins) || {};
-    if (!P.Filesystem) {
-      // 插件缺失：先 Web Share，再网页下载
-      webShareSave(blob, name).then(function (ok) {
-        if (ok) toast('已导出 ' + name + '（请选保存到 下载/文件）');
-        else { downloadAnchor(blob, name); toast('未检测到存储插件，请通过系统保存到 手机/Download'); }
-      });
-      return;
-    }
-    exportNativeFile(blob, name, '测量记录').then(function (r) {
-      if (typeof r === 'string') toast('已导出到 手机 ' + r + name);
-      else if (r === 'fallback') {
-        webShareSave(blob, name).then(function (ok) {
-          if (!ok) { downloadAnchor(blob, name); toast('已导出 ' + name + '（请通过系统保存到 Download/测量记录）'); }
-        });
-      } else toast('已导出 ' + name + '（请在系统分享面板选 保存到下载）');
-    }).catch(function (e) { console.error('导出失败', e); downloadAnchor(blob, name); toast('已导出 ' + name); });
+  const native = !!(cap && cap.isNativePlatform && cap.isNativePlatform());
+  const P = (cap && cap.Plugins) || {};
+  if (!native) {
+    downloadAnchor(blob, name);
+    toast('【诊断·web】Capacitor 未注入，仅网页下载，可能不落盘：' + name);
     return;
   }
-  downloadAnchor(blob, name);
-  toast('已导出 ' + name);
+  if (!P.Filesystem) {
+    downloadAnchor(blob, name);
+    toast('【诊断·native】Filesystem 插件缺失（cap sync 未生效）' + name);
+    return;
+  }
+  exportNativeFile(blob, name, '测量记录').then(function (r) {
+    if (typeof r === 'string') toast('已保存：' + r + name + '　请到文件管理器查看');
+    else if (r === 'fallback') {
+      webShareSave(blob, name).then(function (ok) {
+        if (ok) toast('已分享保存：' + name + '　请在面板选 保存到下载');
+        else { downloadAnchor(blob, name); toast('【诊断】公共目录写入失败且无分享能力，请检查存储权限：' + name); }
+      });
+    } else toast('已调用系统分享：' + name + '　请在面板选 保存到下载/文件');
+  }).catch(function (e) { console.error('导出失败', e); downloadAnchor(blob, name); toast('【诊断·error】' + (e && e.message ? e.message : '未知') + ' ' + name); });
 }
 
 /* ============================================================
