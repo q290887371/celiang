@@ -242,42 +242,68 @@ async function importDB(input) {
 }
 // 导出文件：原生(APK)用 Capacitor Filesystem 写入缓存 + Share 系统分享面板（选"保存到下载/文件"即落盘），
 // 网页预览回退 <a download>。
+// Blob 转 Base64（大文件分块）
+function blobToB64(blob) {
+  return blob.arrayBuffer().then(function (buf) {
+    const bytes = new Uint8Array(buf);
+    let s = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      s += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    return btoa(s);
+  });
+}
+// 网页降级：<a download>
+function downloadAnchor(blob, name) {
+  try {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name; a.style.display = 'none';
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  } catch (e) { console.error('download anchor failed', e); }
+}
+// 原生导出：优先写公共 Download/测量记录，降级 Documents，再降级 Cache + 系统分享
+function exportNativeFile(blob, name, folder) {
+  const cap = window.Capacitor;
+  const P = (cap && cap.Plugins) || {};
+  const FS = P.Filesystem;
+  if (!FS) return Promise.resolve('fallback');
+  const Dir = FS.Directory, Enc = FS.Encoding;
+  let b64;
+  return blobToB64(blob)
+    .then(function (b) { b64 = b; if (FS.requestPermissions) return FS.requestPermissions().catch(function () {}); })
+    .then(function () {
+      // 1) 公共 Download 目录 /storage/emulated/0/Download/测量记录/
+      return FS.writeFile({ path: 'Download/' + folder + '/' + name, data: b64, directory: Dir.ExternalStorage, encoding: Enc.BASE64, recursive: true }).then(function () {
+        return '/storage/emulated/0/Download/测量记录/';
+      }).catch(function () {
+        // 2) 公共 Documents 目录
+        return FS.writeFile({ path: folder + '/' + name, data: b64, directory: Dir.Documents, encoding: Enc.BASE64, recursive: true }).then(function () {
+          return '/storage/emulated/0/Documents/测量记录/';
+        }).catch(function () {
+          // 3) Cache + 系统分享面板（选“保存到下载/文件”即可落盘）
+          return FS.writeFile({ path: name, data: b64, directory: Dir.Cache, encoding: Enc.BASE64 }).then(function () {
+            return FS.getUri({ path: name, directory: Dir.Cache });
+          }).then(function (res) {
+            if (P.Share) return P.Share.share({ title: name, files: [res.uri], dialogTitle: '导出 ' + name }).then(function () { return null; });
+            return null;
+          }).catch(function () { return 'fallback'; });
+        });
+      });
+    });
+}
 function downloadBlob(blob, name) {
-  function fallback() {
-    try {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob); a.download = name; a.style.display = 'none';
-      document.body.appendChild(a); a.click();
-      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-    } catch (e) { console.error('download fallback failed', e); }
-  }
   const cap = window.Capacitor;
   if (cap && cap.isNativePlatform && cap.isNativePlatform()) {
-    const P = cap.Plugins || {};
-    if (!P.Filesystem) { fallback(); toast('已导出 ' + name + '（请注意浏览器下载设置）'); return; }
-    blob.arrayBuffer().then(function (buf) {
-      const bytes = new Uint8Array(buf);
-      let binary = '';
-      const chunk = 0x8000;
-      for (let i = 0; i < bytes.length; i += chunk) {
-        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
-      }
-      const b64 = btoa(binary);
-      const FS = P.Filesystem, Dir = P.Filesystem.Directory, Enc = P.Filesystem.Encoding;
-      return FS.writeFile({ path: name, data: b64, directory: Dir.Cache, encoding: Enc.BASE64 })
-        .then(function () { return FS.getUri({ path: name, directory: Dir.Cache }); })
-        .then(function (res) {
-          if (P.Share) {
-            return P.Share.share({ title: name, files: [res.uri], dialogTitle: '导出 ' + name }).then(function () {
-              toast('已导出 ' + name);
-            });
-          }
-          toast('已导出 ' + name + '（缓存目录）');
-        });
-    }).catch(function (e) { console.error('导出失败', e); fallback(); toast('已导出 ' + name + '（请通过系统下载/分享保存）'); });
+    exportNativeFile(blob, name, '测量记录').then(function (r) {
+      if (typeof r === 'string') toast('已导出到 手机 ' + r + name);
+      else if (r === 'fallback') { downloadAnchor(blob, name); toast('已导出 ' + name + '（请通过系统保存到 Download/测量记录）'); }
+      else toast('已导出 ' + name);
+    }).catch(function (e) { console.error('导出失败', e); downloadAnchor(blob, name); toast('已导出 ' + name); });
     return;
   }
-  fallback();
+  downloadAnchor(blob, name);
   toast('已导出 ' + name);
 }
 
