@@ -89,11 +89,15 @@ function computeMeasureInputs(designElev) {
   const sumLayers = state.project.layers.reduce((s, l) => s + (act.has(l.key) ? (parseFloat(l.thickness) || 0) : 0), 0);
   const inactive = allLayers - sumLayers; // 不生效层厚之和
   const loose = parseFloat(state.project.looseThickness);
+  const adj = parseFloat(state.project.designAdjustThickness) || 0; // 设计调整厚度
+  const ret = parseFloat(state.project.returnThickness) || 0;       // 下返厚度
   const cs = parseFloat(state.project.crossSlope);
   const o = state.project.offsets;
   const offsetMap = [o[2], o[1], o[0], o[1], o[2]]; // 南/南腰/中/北腰/北
   if (isNaN(D) || isNaN(loose) || isNaN(cs)) return [null, null, null, null, null];
-  return offsetMap.map(d => D - inactive + loose - d * cs);
+  // 目标高程 = 偏距处设计高程(D−偏距×横坡) + 设计调整 − 结构层总厚 + 生效层厚度和 + 虚铺 + 下返
+  //（= D − 不生效层厚和 + 虚铺 + 设计调整 + 下返 − 偏距×横坡）
+  return offsetMap.map(d => D - inactive + loose + adj + ret - d * cs);
 }
 
 // 测量高程（实测） = 视线高 − 原始数据
