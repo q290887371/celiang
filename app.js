@@ -431,7 +431,7 @@ function generateStations() {
   for (let m = min; m <= max; m += step) {
     const st = formatStation(m);
     if (existing.has(st)) continue;
-    state.measures.push({ station: st, designElev: elevationAtStation(m).toFixed(4), originalData: [null, null, null, null, null], isControl: false });
+    state.measures.push({ station: st, designElev: elevationAtStation(m).toFixed(3), originalData: [null, null, null, null, null], isControl: false });
     existing.add(st);
   }
   saveAll(); renderOriginalData(); renderMeasures();
@@ -483,7 +483,7 @@ function onStationInput(id, val) {
   if (!m) return;
   m.station = val;
   const sm = parseStation(val);
-  m.designElev = !isNaN(sm) ? elevationAtStation(sm).toFixed(4) : '';
+  m.designElev = !isNaN(sm) ? elevationAtStation(sm).toFixed(3) : '';
   const deCell = document.getElementById('de-' + id);
   if (deCell) deCell.textContent = m.designElev || '';
   saveAll(); renderMeasures();
@@ -617,6 +617,12 @@ function devText(v) {
   if (v === null || v === undefined) return '';
   return v > 0 ? '+' + v.toFixed(3) : v.toFixed(3);
 }
+// 统一按 3 位小数显示数值（水准测量记录/原始数据/测量录入 的计算结果）
+function f3(v) {
+  if (v === null || v === undefined || v === '') return '';
+  const n = (typeof v === 'number') ? v : Number(v);
+  return isNaN(n) ? '' : n.toFixed(3);
+}
 // 水准测量递推（自上而下）：
 //   视线高 = 本行高程 + 本行后视（有后视的行设新仪器高，并向下沿用）
 //   本行高程 = 上一行视线高 − 本行中间点（或前视）
@@ -629,7 +635,7 @@ function recomputeLevels() {
       const sm = stationInText(r.pt);
       if (!isNaN(sm)) {
         const d = designElevForPoint(r.pt, sm);
-        if (!isNaN(d)) r.de = +d.toFixed(4);
+        if (!isNaN(d)) r.de = +d.toFixed(3);
       }
     }
     const fs = parseFloat(r.fs), mid = parseFloat(r.mid), bs = parseFloat(r.bs);
@@ -640,16 +646,16 @@ function recomputeLevels() {
       if (!isNaN(fs) && haveLos) elev = los - fs;
       else if (!isNaN(mid) && haveLos) elev = los - mid;
       else if (r.elev !== '' && !isNaN(parseFloat(r.elev))) elev = parseFloat(r.elev);
-      if (!isNaN(elev)) r.elev = elev;
+      if (!isNaN(elev)) r.elev = +elev.toFixed(3);
     }
     const elev = parseFloat(r.elev);
     // ② 视线高：非手工时 高程+后视，否则沿用上一站
     if (r.losManual) {
       const ml = parseFloat(r.los);
-      if (!isNaN(ml)) los = ml;
+      if (!isNaN(ml)) los = +ml.toFixed(3);
     } else {
-      if (!isNaN(bs) && !isNaN(elev)) los = elev + bs;
-      if (los !== null && !isNaN(los)) r.los = los;
+      if (!isNaN(bs) && !isNaN(elev)) los = +(elev + bs).toFixed(3);
+      if (los !== null && !isNaN(los)) r.los = +los.toFixed(3);
     }
     // ③ 偏差值
     r.dev = levelDev(r);
@@ -659,11 +665,11 @@ function recomputeLevels() {
 function updateLevelCells() {
   (state.levelRows || []).forEach(r => {
     const lEl = document.getElementById('lv-los-' + r._id);
-    if (lEl) lEl.value = (r.los != null && r.los !== '') ? r.los : '';
+    if (lEl) lEl.value = f3(r.los);
     const eEl = document.getElementById('lv-elev-' + r._id);
-    if (eEl) eEl.value = (r.elev !== '' && r.elev != null) ? r.elev : '';
+    if (eEl) eEl.value = f3(r.elev);
     const deEl = document.getElementById('lv-de-' + r._id);
-    if (deEl) deEl.value = (r.de !== '' && r.de != null) ? r.de : '';
+    if (deEl) deEl.value = f3(r.de);
     const dEl = document.getElementById('lv-dev-' + r._id);
     if (dEl) {
       const dv = r.dev;
@@ -690,7 +696,7 @@ function syncLevelToOrigData(r) {
   if (!row) {
     const de = elevationAtStation(sm);
     row = { _id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2),
-      station: st, designElev: !isNaN(de) ? de.toFixed(4) : '',
+      station: st, designElev: !isNaN(de) ? de.toFixed(3) : '',
       originalData: [null, null, null, null, null], isControl: false };
     state.measures.push(row);
   }
@@ -738,9 +744,9 @@ function renderLevelRows() {
       <td><input type="number" step="0.001" value="${r.bs != null ? r.bs : ''}" oninput="onLevelInput('${r._id}','bs',this.value)"></td>
       <td><input type="number" step="0.001" value="${r.mid != null ? r.mid : ''}" oninput="onLevelInput('${r._id}','mid',this.value)"></td>
       <td><input type="number" step="0.001" value="${r.fs != null ? r.fs : ''}" oninput="onLevelInput('${r._id}','fs',this.value)"></td>
-      <td><input type="number" step="0.001" id="lv-los-${r._id}" value="${r.los != null && r.los !== '' ? r.los : ''}" oninput="onLevelInput('${r._id}','los',this.value)" title="视线高=高程+后视（自动算，可手工覆盖）"></td>
-      <td><input type="number" step="0.001" id="lv-elev-${r._id}" value="${r.elev !== '' && r.elev != null ? r.elev : ''}" oninput="onLevelInput('${r._id}','elev',this.value)" placeholder="高程" title="高程=上一行视线高−中间点(或前视)；首行/已知点手工填"></td>
-      <td><input type="number" step="0.001" id="lv-de-${r._id}" value="${r.de || ''}" oninput="onLevelInput('${r._id}','de',this.value)" placeholder="自动匹配"></td>
+      <td><input type="number" step="0.001" id="lv-los-${r._id}" value="${f3(r.los)}" oninput="onLevelInput('${r._id}','los',this.value)" title="视线高=高程+后视（自动算，可手工覆盖）"></td>
+      <td><input type="number" step="0.001" id="lv-elev-${r._id}" value="${f3(r.elev)}" oninput="onLevelInput('${r._id}','elev',this.value)" placeholder="高程" title="高程=上一行视线高−中间点(或前视)；首行/已知点手工填"></td>
+      <td><input type="number" step="0.001" id="lv-de-${r._id}" value="${f3(r.de)}" oninput="onLevelInput('${r._id}','de',this.value)" placeholder="自动匹配"></td>
       <td class="lv-dev ${devCls}" id="lv-dev-${r._id}">${devText(r.dev)}</td>
       <td><button class="btn btn-sm btn-danger" onclick="deleteLevelRow('${r._id}')">删</button></td>
     </tr>`;
@@ -799,7 +805,7 @@ function updateLineOfSight() {
   const bm = state.project.benchmarks.find(b => b.name === state.measureSetup.benchmark);
   const los = bm ? (parseFloat(bm.elevation) + state.measureSetup.backsight) : NaN;
   state.measureSetup.los = isNaN(los) ? '' : los;
-  document.getElementById('losValue').textContent = isNaN(los) ? '—' : los.toFixed(4);
+  document.getElementById('losValue').textContent = isNaN(los) ? '—' : los.toFixed(3);
   saveAll(); renderMeasures();
 }
 function renderMeasureHead() {
@@ -835,12 +841,12 @@ function renderMeasures() {
   body.innerHTML = rows.map((m, i) => {
     const sm = parseStation(m.station);
     const de = !isNaN(sm) ? elevationAtStation(sm) : NaN;
-    m.designElev = isNaN(de) ? '' : de.toFixed(4);
+    m.designElev = isNaN(de) ? '' : de.toFixed(3);
     const me = computeMeasureElev(m);
     const md = computeMeasureDiffs(m);
     const dr = computeDesignReadings(m);
     const meCells = state.showMeasureElev ? me.map(v =>
-      `<td><input class="calculated" value="${v !== null ? v.toFixed(4) : ''}" readonly></td>`).join('') : '';
+      `<td><input class="calculated" value="${v !== null ? v.toFixed(3) : ''}" readonly></td>`).join('') : '';
     const mdCells = state.showMeasureDiff ? md.map(v => {
       if (v === null || v === '' || isNaN(v)) return '<td class="calculated text-muted">-</td>';
       const j = judgeDiff(v);
@@ -848,7 +854,7 @@ function renderMeasures() {
       return `<td class="calculated diff ${cls}">${v.toFixed(3)}</td>`;
     }).join('') : '';
     const drCells = state.showMeasureOrig ? dr.map(v =>
-      `<td><input class="calculated" value="${v !== null ? v.toFixed(4) : ''}" readonly></td>`).join('') : '';
+      `<td><input class="calculated" value="${v !== null ? v.toFixed(3) : ''}" readonly></td>`).join('') : '';
     return `<tr>
       <td>${i + 1}</td>
       <td class="station-cell">${m.station || ''}</td>
@@ -878,7 +884,7 @@ function saveMeasureSession() {
     rows: rows.map(m => {
       const sm = parseStation(m.station);
       const de = !isNaN(sm) ? elevationAtStation(sm) : NaN;
-      m.designElev = isNaN(de) ? '' : de.toFixed(4);
+      m.designElev = isNaN(de) ? '' : de.toFixed(3);
       return {
         station: m.station,
         designElev: m.designElev,
@@ -917,14 +923,14 @@ function sessionModuleHTML(s, num) {
     const me = r.measureElev || [null, null, null, null, null];
     const md = r.measureDiff || [null, null, null, null, null];
     const od = r.originalData || [null, null, null, null, null];
-    const meCells = eE ? me.map(v => `<td class="calculated grp-elev">${v !== null ? v.toFixed(4) : ''}</td>`).join('') : '';
+    const meCells = eE ? me.map(v => `<td class="calculated grp-elev">${v !== null ? v.toFixed(3) : ''}</td>`).join('') : '';
     const mdCells = eD ? md.map(v => {
       if (v === null || v === '' || isNaN(v)) return '<td class="calculated text-muted grp-diff">-</td>';
       const j = judgeDiff(v);
       const cls = j === 2 ? (v > 0 ? 'dev-positive' : 'dev-negative') : j === 1 ? 'dev-warn' : 'dev-zero';
       return `<td class="calculated diff grp-diff ${cls}">${v.toFixed(3)}</td>`;
     }).join('') : '';
-    const odCells = eO ? od.map(v => `<td class="calculated grp-orig">${v !== null ? v.toFixed(4) : ''}</td>`).join('') : '';
+    const odCells = eO ? od.map(v => `<td class="calculated grp-orig">${v !== null ? v.toFixed(3) : ''}</td>`).join('') : '';
     return `<tr><td class="station-cell">${r.station || ''}</td><td>${r.designElev || ''}</td>${meCells}${mdCells}${odCells}</tr>`;
   }).join('');
   return `<div class="card session-module">
