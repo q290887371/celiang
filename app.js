@@ -764,25 +764,15 @@ function onLevelInput(id, field, val) {
   updateLevelCells();
   // 中间点读数 → 同步到原始数据录入表（对应桩号+方位）
   if (field === 'mid') syncLevelToOrigData(r);
+  renderMeasures(); // 测量差值由水准偏差值按方位提供，随编辑联动
   saveAll();
-}
-// 该测点(桩号+方位)对应的「测量差值」：从测量录入对应该桩号行取该方位的差值
-function levelDiffFor(r) {
-  const sm = stationInText(r.pt);
-  if (isNaN(sm)) return null;
-  const idx = azimuthIndex(r.pt);
-  const m = state.measures.find(x => parseStation(x.station) === sm);
-  if (!m) return null;
-  const diffs = computeMeasureDiffs(m);
-  const v = (diffs && idx >= 0) ? diffs[idx] : null;
-  return (v === null || v === undefined || isNaN(v)) ? null : +v.toFixed(3);
 }
 function renderLevelRows() {
   const body = document.getElementById('levelBody');
   if (!body) return;
   recomputeLevels();
   if (!state.levelRows.length) {
-    body.innerHTML = '<tr><td colspan="10" class="empty-state"><p>暂无记录，点下方「添加测量行」开始录入；先在第1行输入 已知点高程+后视 得到视线高，后续输入 中间点/前视 自动算高程</p></td></tr>';
+    body.innerHTML = '<tr><td colspan="9" class="empty-state"><p>暂无记录，点下方「添加测量行」开始录入；先在第1行输入 已知点高程+后视 得到视线高，后续输入 中间点/前视 自动算高程</p></td></tr>';
     return;
   }
   body.innerHTML = state.levelRows.map(r => {
@@ -796,7 +786,6 @@ function renderLevelRows() {
       <td><input type="number" step="0.001" id="lv-elev-${r._id}" value="${f3(r.elev)}" oninput="onLevelInput('${r._id}','elev',this.value)" placeholder="高程" title="高程=上一行视线高−中间点(或前视)；首行/已知点手工填"></td>
       <td><input type="number" step="0.001" id="lv-de-${r._id}" value="${f3(r.de)}" oninput="onLevelInput('${r._id}','de',this.value)" placeholder="自动匹配"></td>
       <td class="lv-dev ${devCls}" id="lv-dev-${r._id}">${devText(r.dev)}</td>
-      <td class="calculated" title="测量录入差值（该桩号对应方位）">${f3(levelDiffFor(r))}</td>
       <td><button class="btn btn-sm btn-danger" onclick="deleteLevelRow('${r._id}')">删</button></td>
     </tr>`;
   }).join('');
@@ -809,8 +798,8 @@ function exportLevelXLSX() {
   const cell = (v, s) => ({ v: v, s: s });
   const _num = (v, d) => (v === null || v === undefined || v === '' || isNaN(Number(v))) ? null : +Number(v).toFixed(d);
   const out = [];
-  out.push([cell('测点', 16), cell('水准尺读数', 16), null, null, cell('视线高', 16), cell('高程\n(m)', 16), cell('设计高程\n(m)', 16), cell('偏差值\n(m)', 16), cell('测差\n(m)', 16)]);
-  out.push([null, cell('后视', 17), cell('中间点', 17), cell('前视', 17), null, null, null, null, null]);
+  out.push([cell('测点', 16), cell('水准尺读数', 16), null, null, cell('视线高', 16), cell('高程\n(m)', 16), cell('设计高程\n(m)', 16), cell('偏差值\n(m)', 16)]);
+  out.push([null, cell('后视', 17), cell('中间点', 17), cell('前视', 17), null, null, null, null]);
   rows.forEach(r => {
     out.push([
       cell(r.pt || '', 20),
@@ -820,15 +809,14 @@ function exportLevelXLSX() {
       _num(r.los, 3) === null ? null : cell(_num(r.los, 3), 19),
       _num(r.elev, 3) === null ? null : cell(_num(r.elev, 3), 19),
       _num(r.de, 3) === null ? null : cell(_num(r.de, 3), 19),
-      r.dev != null ? cell(+r.dev.toFixed(3), 19) : null,
-      levelDiffFor(r) === null ? null : cell(levelDiffFor(r), 19)
+      r.dev != null ? cell(+r.dev.toFixed(3), 19) : null
     ]);
   });
   const rowHeights = { 1: 28, 2: 18 };
   for (let i = 3; i <= 2 + rows.length; i++) rowHeights[i] = 18;
   const sheet = { name: '水准测量记录', rows: out,
-    merges: ['A1:A2', 'B1:D1', 'E1:E2', 'F1:F2', 'G1:G2', 'H1:H2', 'I1:I2'],
-    cols: [{ w: 12 }, { w: 10 }, { w: 10 }, { w: 10 }, { w: 11 }, { w: 10 }, { w: 11 }, { w: 11 }, { w: 11 }],
+    merges: ['A1:A2', 'B1:D1', 'E1:E2', 'F1:F2', 'G1:G2', 'H1:H2'],
+    cols: [{ w: 12 }, { w: 10 }, { w: 10 }, { w: 10 }, { w: 11 }, { w: 10 }, { w: 11 }, { w: 11 }],
     rowHeights: rowHeights };
   const bytes = buildStyledXLSX([sheet]);
   downloadBlob(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), '水准测量记录.xlsx');
@@ -879,6 +867,19 @@ function toggleMeasureCol(which, on) {
   else state.showMeasureOrig = on;
   renderMeasureHead(); renderMeasures(); saveAll();
 }
+// 测量差值：由水准测量记录的偏差值按 桩号+方位 提供（南/南腰/中/北腰/北）
+function measureDiffFromLevel(station) {
+  const arr = [null, null, null, null, null];
+  const sm = parseStation(station);
+  if (isNaN(sm)) return arr;
+  (state.levelRows || []).forEach(r => {
+    if (parseStation(r.pt) === sm) {
+      const idx = azimuthIndex(r.pt);
+      if (idx >= 0 && r.dev != null && !isNaN(r.dev)) arr[idx] = +r.dev.toFixed(3);
+    }
+  });
+  return arr;
+}
 function renderMeasures() {
   renderMeasureHead();
   const body = document.getElementById('measureBody');
@@ -893,7 +894,7 @@ function renderMeasures() {
     const de = !isNaN(sm) ? elevationAtStation(sm) : NaN;
     m.designElev = isNaN(de) ? '' : de.toFixed(3);
     const me = computeMeasureElev(m);
-    const md = computeMeasureDiffs(m);
+    const md = measureDiffFromLevel(m.station);
     const dr = computeDesignReadings(m);
     const meCells = state.showMeasureElev ? me.map(v =>
       `<td><input class="calculated" value="${v !== null ? v.toFixed(3) : ''}" readonly></td>`).join('') : '';
