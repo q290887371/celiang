@@ -10,9 +10,9 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
   <link rel="apple-touch-icon" href="assets/icon.svg">
-  <link rel="stylesheet" href="styles.css?v=20260819t">
-  <script src="lib/sql-wasm.js?v=20260819t"></script>
-  <script src="lib/xlsx-export.js?v=20260819t"></script>
+  <link rel="stylesheet" href="styles.css?v=20260819u">
+  <script src="lib/sql-wasm.js?v=20260819u"></script>
+  <script src="lib/xlsx-export.js?v=20260819u"></script>
 </head>
 <body>
 
@@ -172,7 +172,7 @@
       <div class="card">
         <div class="card-title"><span>原始数据录入</span></div>
         <div class="section-label">每桩号 5 点读数：南 / 南腰 / 中 / 北腰 / 北（单位 m）。下方「测量录入」的 设计读数 / 测量高程 / 测量差值 将据此自动计算。</div>
-        <div class="table-wrapper">
+        <div class="table-wrapper" id="origdataWrap">
           <table class="data-table" id="origdataTable">
             <thead>
               <tr>
@@ -200,7 +200,7 @@
           <label class="chk-inline"><input type="checkbox" checked onchange="toggleMeasureCol('orig', this.checked)"> 设计读数</label>
         </div>
         <div class="section-label">填桩号自动匹配设计标高；设计读数=视线高−目标高程；测量高程=视线高−原始数据；测量差值=测量高程−目标高程=设计读数−原始数据</div>
-        <div class="table-wrapper">
+        <div class="table-wrapper" id="measureWrap">
           <table class="data-table" id="measureTable">
             <thead id="measureHead"></thead>
             <tbody id="measureBody"></tbody>
@@ -269,6 +269,6 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="app.js?v=20260819t"></script>
+  <script src="app.js?v=20260819u"></script>
 </body>
 </html>
