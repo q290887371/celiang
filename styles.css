@@ -244,7 +244,7 @@ table.data-table .row-control td { background: rgba(240,160,32,0.08); }
 #origdataTable { table-layout: fixed; width: 640px; }
 #origdataTable th, #origdataTable td { white-space: nowrap; word-break: normal; }
 #origdataTable th:first-child, #origdataTable td:first-child { width: 96px; }
-#measureTable { table-layout: fixed; width: 760px; }
+#measureTable { table-layout: fixed; width: 620px; }
 #measureTable th, #measureTable td { white-space: nowrap; word-break: normal; }
 #measureTable th:first-child, #measureTable td:first-child { width: 32px; }
 
