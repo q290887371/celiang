@@ -293,13 +293,36 @@ function exportNativeFile(blob, name, folder) {
       });
     });
 }
+// Web Share 兜底：弹系统分享/保存面板（含文件）
+function webShareSave(blob, name) {
+  try {
+    const file = new File([blob], name, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      return navigator.share({ files: [file], title: name }).then(function () { return true; }).catch(function () { return false; });
+    }
+  } catch (e) { /* ignore */ }
+  return Promise.resolve(false);
+}
 function downloadBlob(blob, name) {
   const cap = window.Capacitor;
-  if (cap && cap.isNativePlatform && cap.isNativePlatform()) {
+  const native = cap && cap.isNativePlatform && cap.isNativePlatform();
+  if (native) {
+    const P = (cap && cap.Plugins) || {};
+    if (!P.Filesystem) {
+      // 插件缺失：先 Web Share，再网页下载
+      webShareSave(blob, name).then(function (ok) {
+        if (ok) toast('已导出 ' + name + '（请选保存到 下载/文件）');
+        else { downloadAnchor(blob, name); toast('未检测到存储插件，请通过系统保存到 手机/Download'); }
+      });
+      return;
+    }
     exportNativeFile(blob, name, '测量记录').then(function (r) {
       if (typeof r === 'string') toast('已导出到 手机 ' + r + name);
-      else if (r === 'fallback') { downloadAnchor(blob, name); toast('已导出 ' + name + '（请通过系统保存到 Download/测量记录）'); }
-      else toast('已导出 ' + name);
+      else if (r === 'fallback') {
+        webShareSave(blob, name).then(function (ok) {
+          if (!ok) { downloadAnchor(blob, name); toast('已导出 ' + name + '（请通过系统保存到 Download/测量记录）'); }
+        });
+      } else toast('已导出 ' + name + '（请在系统分享面板选 保存到下载）');
     }).catch(function (e) { console.error('导出失败', e); downloadAnchor(blob, name); toast('已导出 ' + name); });
     return;
   }
