@@ -266,7 +266,7 @@ function downloadAnchor(blob, name) {
 // Capacitor Filesystem 的 Directory / Encoding 是包内枚举，原生插件对象上没有，
 // 这里用官方字符串枚举值（大小写：'CACHE'/'DOCUMENTS'/'EXTERNAL_STORAGE'、'base64'）
 const CFS_DIR = { CACHE: 'CACHE', DOCUMENTS: 'DOCUMENTS', EXTERNAL_STORAGE: 'EXTERNAL_STORAGE' };
-const CFS_ENC = { UTF8: 'utf8', BASE64: 'base64' };
+const CFS_ENC = { UTF8: 'UTF8', BASE64: 'BASE64' };
 // 原生导出：优先写公共 Download/测量记录，降级 Documents，再降级 Cache + 系统分享
 // 返回：成功路径 | null(已走分享) | 'fallback' | 'FAIL:<第几步:错误消息>'
 function exportNativeFile(blob, name, folder) {
