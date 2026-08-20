@@ -236,12 +236,45 @@ async function importDB(input) {
   }
   input.value = '';
 }
+// 导出文件：原生(APK)用 Capacitor Filesystem 写入缓存 + Share 系统分享面板（选"保存到下载/文件"即落盘），
+// 网页预览回退 <a download>。
 function downloadBlob(blob, name) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
-  document.body.appendChild(a); a.click();
-  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 120);
+  function fallback() {
+    try {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = name; a.style.display = 'none';
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    } catch (e) { console.error('download fallback failed', e); }
+  }
+  const cap = window.Capacitor;
+  if (cap && cap.isNativePlatform && cap.isNativePlatform()) {
+    const P = cap.Plugins || {};
+    if (!P.Filesystem) { fallback(); toast('已导出 ' + name + '（请注意浏览器下载设置）'); return; }
+    blob.arrayBuffer().then(function (buf) {
+      const bytes = new Uint8Array(buf);
+      let binary = '';
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+      }
+      const b64 = btoa(binary);
+      const FS = P.Filesystem, Dir = P.Filesystem.Directory, Enc = P.Filesystem.Encoding;
+      return FS.writeFile({ path: name, data: b64, directory: Dir.Cache, encoding: Enc.BASE64 })
+        .then(function () { return FS.getUri({ path: name, directory: Dir.Cache }); })
+        .then(function (res) {
+          if (P.Share) {
+            return P.Share.share({ title: name, files: [res.uri], dialogTitle: '导出 ' + name }).then(function () {
+              toast('已导出 ' + name);
+            });
+          }
+          toast('已导出 ' + name + '（缓存目录）');
+        });
+    }).catch(function (e) { console.error('导出失败', e); fallback(); toast('已导出 ' + name + '（请通过系统下载/分享保存）'); });
+    return;
+  }
+  fallback();
+  toast('已导出 ' + name);
 }
 
 /* ============================================================
@@ -729,12 +762,23 @@ function onLevelInput(id, field, val) {
   if (field === 'mid') syncLevelToOrigData(r);
   saveAll();
 }
+// 该测点(桩号+方位)对应的「测量差值」：从测量录入对应该桩号行取该方位的差值
+function levelDiffFor(r) {
+  const sm = stationInText(r.pt);
+  if (isNaN(sm)) return null;
+  const idx = azimuthIndex(r.pt);
+  const m = state.measures.find(x => parseStation(x.station) === sm);
+  if (!m) return null;
+  const diffs = computeMeasureDiffs(m);
+  const v = (diffs && idx >= 0) ? diffs[idx] : null;
+  return (v === null || v === undefined || isNaN(v)) ? null : +v.toFixed(3);
+}
 function renderLevelRows() {
   const body = document.getElementById('levelBody');
   if (!body) return;
   recomputeLevels();
   if (!state.levelRows.length) {
-    body.innerHTML = '<tr><td colspan="9" class="empty-state"><p>暂无记录，点下方「添加测量行」开始录入；先在第1行输入 已知点高程+后视 得到视线高，后续输入 中间点/前视 自动算高程</p></td></tr>';
+    body.innerHTML = '<tr><td colspan="10" class="empty-state"><p>暂无记录，点下方「添加测量行」开始录入；先在第1行输入 已知点高程+后视 得到视线高，后续输入 中间点/前视 自动算高程</p></td></tr>';
     return;
   }
   body.innerHTML = state.levelRows.map(r => {
@@ -748,6 +792,7 @@ function renderLevelRows() {
       <td><input type="number" step="0.001" id="lv-elev-${r._id}" value="${f3(r.elev)}" oninput="onLevelInput('${r._id}','elev',this.value)" placeholder="高程" title="高程=上一行视线高−中间点(或前视)；首行/已知点手工填"></td>
       <td><input type="number" step="0.001" id="lv-de-${r._id}" value="${f3(r.de)}" oninput="onLevelInput('${r._id}','de',this.value)" placeholder="自动匹配"></td>
       <td class="lv-dev ${devCls}" id="lv-dev-${r._id}">${devText(r.dev)}</td>
+      <td class="calculated" title="测量录入差值（该桩号对应方位）">${f3(levelDiffFor(r))}</td>
       <td><button class="btn btn-sm btn-danger" onclick="deleteLevelRow('${r._id}')">删</button></td>
     </tr>`;
   }).join('');
@@ -760,8 +805,8 @@ function exportLevelXLSX() {
   const cell = (v, s) => ({ v: v, s: s });
   const _num = (v, d) => (v === null || v === undefined || v === '' || isNaN(Number(v))) ? null : +Number(v).toFixed(d);
   const out = [];
-  out.push([cell('测点', 16), cell('水准尺读数', 16), null, null, cell('视线高', 16), cell('高程\n(m)', 16), cell('设计高程\n(m)', 16), cell('偏差值\n(m)', 16)]);
-  out.push([null, cell('后视', 17), cell('中间点', 17), cell('前视', 17), null, null, null, null]);
+  out.push([cell('测点', 16), cell('水准尺读数', 16), null, null, cell('视线高', 16), cell('高程\n(m)', 16), cell('设计高程\n(m)', 16), cell('偏差值\n(m)', 16), cell('测差\n(m)', 16)]);
+  out.push([null, cell('后视', 17), cell('中间点', 17), cell('前视', 17), null, null, null, null, null]);
   rows.forEach(r => {
     out.push([
       cell(r.pt || '', 20),
@@ -771,14 +816,15 @@ function exportLevelXLSX() {
       _num(r.los, 3) === null ? null : cell(_num(r.los, 3), 19),
       _num(r.elev, 3) === null ? null : cell(_num(r.elev, 3), 19),
       _num(r.de, 3) === null ? null : cell(_num(r.de, 3), 19),
-      r.dev != null ? cell(+r.dev.toFixed(3), 19) : null
+      r.dev != null ? cell(+r.dev.toFixed(3), 19) : null,
+      levelDiffFor(r) === null ? null : cell(levelDiffFor(r), 19)
     ]);
   });
   const rowHeights = { 1: 28, 2: 18 };
   for (let i = 3; i <= 2 + rows.length; i++) rowHeights[i] = 18;
   const sheet = { name: '水准测量记录', rows: out,
-    merges: ['A1:A2', 'B1:D1', 'E1:E2', 'F1:F2', 'G1:G2', 'H1:H2'],
-    cols: [{ w: 12 }, { w: 10 }, { w: 10 }, { w: 10 }, { w: 11 }, { w: 10 }, { w: 11 }, { w: 11 }],
+    merges: ['A1:A2', 'B1:D1', 'E1:E2', 'F1:F2', 'G1:G2', 'H1:H2', 'I1:I2'],
+    cols: [{ w: 12 }, { w: 10 }, { w: 10 }, { w: 10 }, { w: 11 }, { w: 10 }, { w: 11 }, { w: 11 }, { w: 11 }],
     rowHeights: rowHeights };
   const bytes = buildStyledXLSX([sheet]);
   downloadBlob(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), '水准测量记录.xlsx');
