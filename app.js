@@ -263,12 +263,14 @@ function downloadAnchor(blob, name) {
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
   } catch (e) { console.error('download anchor failed', e); }
 }
-// Capacitor Filesystem 的 Directory / Encoding 是包内枚举，原生插件对象上没有，
-// 这里用官方字符串枚举值（大小写：'CACHE'/'DOCUMENTS'/'EXTERNAL_STORAGE'、'base64'）
+// Capacitor Filesystem 在 5.x 上：Directory 接受大小写不敏感的字符串(DOCUMENTS/CACHE/EXTERNAL_STORAGE)；
+// Encoding 只接受 'utf8'/'utf16'/'ascii'，**没有 base64 选项**——写二进制文件必须不传 encoding，
+// 同时把 data 字段填成纯 base64 字符串（也可填完整 data:...;base64, 形式，底层会自动剥前缀再 Base64.decode）。
+// 因此 BASE64/'base64'/'BASE64' 都会 reject "Unsupported encoding provided"，这是 5.x 的固定行为。
 const CFS_DIR = { CACHE: 'CACHE', DOCUMENTS: 'DOCUMENTS', EXTERNAL_STORAGE: 'EXTERNAL_STORAGE' };
-const CFS_ENC = { UTF8: 'UTF8', BASE64: 'BASE64' };
-// 原生导出：优先写公共 Download/测量记录，降级 Documents，再降级 Cache + 系统分享
-// 返回：成功路径 | null(已走分享) | 'fallback' | 'FAIL:<第几步:错误消息>'
+// 原生导出：把 XLSX bytes 的 base64 直写到公共 Download/测量记录；失败降级 Documents，再降级 Cache + WebShare。
+// 注意 5.x 的 encoding 字段**绝对不传**(传就会 reject)；data 传纯 base64 即可。
+// 返回：成功路径 | 'FAIL:<错误链>'
 function exportNativeFile(blob, name, folder) {
   const cap = window.Capacitor;
   const P = (cap && cap.Plugins) || {};
@@ -279,15 +281,15 @@ function exportNativeFile(blob, name, folder) {
     .then(function (b) { b64 = b; if (FS.requestPermissions) return FS.requestPermissions().catch(function () {}); })
     .then(function () {
       // 1) 公共 Download
-      return FS.writeFile({ path: 'Download/' + folder + '/' + name, data: b64, directory: CFS_DIR.EXTERNAL_STORAGE, encoding: CFS_ENC.BASE64, recursive: true }).then(function () {
+      return FS.writeFile({ path: 'Download/' + folder + '/' + name, data: b64, directory: CFS_DIR.EXTERNAL_STORAGE, recursive: true }).then(function () {
         return '/storage/emulated/0/Download/测量记录/';
       }).catch(function (e1) {
         // 2) 公共 Documents
-        return FS.writeFile({ path: folder + '/' + name, data: b64, directory: CFS_DIR.DOCUMENTS, encoding: CFS_ENC.BASE64, recursive: true }).then(function () {
+        return FS.writeFile({ path: folder + '/' + name, data: b64, directory: CFS_DIR.DOCUMENTS, recursive: true }).then(function () {
           return '/storage/emulated/0/Documents/测量记录/';
         }).catch(function (e2) {
           // 3) Cache
-          return FS.writeFile({ path: name, data: b64, directory: CFS_DIR.CACHE, encoding: CFS_ENC.BASE64 }).then(function () {
+          return FS.writeFile({ path: name, data: b64, directory: CFS_DIR.CACHE }).then(function () {
             return FS.getUri({ path: name, directory: CFS_DIR.CACHE });
           }).then(function (res) {
             if (P.Share) return P.Share.share({ title: name, files: [res.uri], dialogTitle: '导出 ' + name }).then(function () { return null; });
@@ -299,7 +301,7 @@ function exportNativeFile(blob, name, folder) {
       });
     });
 }
-// Web Share 兜底：弹系统分享/保存面板（含文件）
+// Web Share 在安卓系统 WebView 里 canShare({files}) 通常返回 false，故作兜底（弹保存面板场景下）。
 function webShareSave(blob, name) {
   try {
     const file = new File([blob], name, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -314,21 +316,21 @@ function downloadBlob(blob, name) {
   const native = !!(cap && cap.isNativePlatform && cap.isNativePlatform());
   if (!native) { downloadAnchor(blob, name); toast('已导出 ' + name + '（请用浏览器/文件管理器查看）'); return; }
   const P = (cap && cap.Plugins) || {};
-  // 第一优先：系统保存/分享面板（不依赖 Filesystem 编码）
-  webShareSave(blob, name).then(function (ok) {
-    if (ok) { toast('已调起系统保存，请在面板选「保存到下载/文件」：' + name); return; }
-    // 备选：Filesystem 直接写公共目录
-    if (!P.Filesystem) { downloadAnchor(blob, name); toast('已导出 ' + name + '，请到系统下载里查找'); return; }
-    exportNativeFile(blob, name, '测量记录').then(function (r) {
-      if (typeof r === 'string' && r.indexOf('FAIL:') === 0) {
+  // 主路径：Filesystem 直接写公共目录(不传 encoding=data 传纯 base64，5.x 唯一支持的二进制写法)
+  if (!P.Filesystem) { downloadAnchor(blob, name); toast('已导出 ' + name + '，请到系统下载里查找'); return; }
+  exportNativeFile(blob, name, '测量记录').then(function (r) {
+    if (typeof r === 'string' && r.indexOf('FAIL:') === 0) {
+      // Filesystem 三级都失败 → 兜底走系统分享面板（部分 WebView 能弹）
+      webShareSave(blob, name).then(function (ok) {
+        if (ok) { toast('已调起系统保存面板：' + name); return; }
         downloadAnchor(blob, name);
         toast('保存失败（' + r.slice(5) + '），已尝试网页下载：' + name);
-        return;
-      }
-      if (typeof r === 'string') { toast('已保存：' + r + name + '　请到文件管理器查看'); return; }
-      toast('已调起系统分享：' + name + '　请选 保存到下载/文件');
-    }).catch(function (e) { console.error('导出失败', e); downloadAnchor(blob, name); toast('已导出 ' + name); });
-  });
+      });
+      return;
+    }
+    if (typeof r === 'string') { toast('已保存：' + r + name + '　请到文件管理器查看'); return; }
+    toast('已调起系统分享：' + name + '　请选 保存到下载/文件');
+  }).catch(function (e) { console.error('导出失败', e); downloadAnchor(blob, name); toast('已导出 ' + name); });
 }
 
 /* ============================================================

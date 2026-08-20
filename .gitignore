@@ -8,6 +8,9 @@ ios/
 *.db
 survey*.db
 
+# 示例/样例文件（不参与打包，按需使用）
+预览-*.xlsx
+
 # 系统
 .DS_Store
 Thumbs.db
